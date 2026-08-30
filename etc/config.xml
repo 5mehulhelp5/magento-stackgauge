@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <crontab>
+            <viewgento>
+                <jobs>
+                    <stacknuts_viewgento_send_report>
+                        <schedule>
+                            <cron_expr>0 * * * *</cron_expr>
+                        </schedule>
+                    </stacknuts_viewgento_send_report>
+                    <stacknuts_viewgento_send_heartbeat>
+                        <schedule>
+                            <cron_expr>*/5 * * * *</cron_expr>
+                        </schedule>
+                    </stacknuts_viewgento_send_heartbeat>
+                </jobs>
+            </viewgento>
+        </crontab>
+        <stacknuts_viewgento>
+            <general>
+                <enabled>0</enabled>
+                <reporters>core,modules,composer,db_schema,patches,indexers,cron,cache,security,redis,search,rabbitmq,disk,database</reporters>
+            </general>
+            <log>
+                <log_level>300</log_level>
+            </log>
+        </stacknuts_viewgento>
+    </default>
+</config>

@@ -1,0 +1,100 @@
+<?php
+/**
+ * Copyright © StackNuts. All rights reserved.
+ * See LICENSE for license details.
+ */
+
+declare(strict_types=1);
+
+namespace StackNuts\ViewGento\Model\Reporter;
+
+use Credis_Client;
+use Magento\Framework\App\DeploymentConfig;
+use StackNuts\ViewGento\Api\ReporterInterface;
+use Throwable;
+
+/**
+ * Reachability + version for every Redis-backed cache frontend and the session backend,
+ * checked separately since the doc's own data-collection list calls out that cache and
+ * session can be entirely different Redis instances. Uses Credis_Client rather than the
+ * phpredis extension directly - Credis is a transitive dependency of magento/framework
+ * itself (via colinmollenhour/php-redis-session-abstract), present on every real Magento
+ * install whether or not phpredis is compiled in, and it already prefers the native
+ * extension when available and falls back to plain sockets otherwise.
+ */
+class RedisReporter implements ReporterInterface
+{
+    private const SCHEMA_VERSION = '1.0';
+
+    /**
+     * A slow/unreachable Redis must not stall the whole report - this is collection-time
+     * I/O, not the final HTTP send, so the same "never hang" discipline applies here too.
+     */
+    private const CONNECT_TIMEOUT_SECONDS = 2.0;
+
+    public function __construct(
+        private readonly DeploymentConfig $deploymentConfig
+    ) {
+    }
+
+    public function getName(): string
+    {
+        return 'redis';
+    }
+
+    public function getSchemaVersion(): string
+    {
+        return self::SCHEMA_VERSION;
+    }
+
+    public function getStatus(): array
+    {
+        $backends = [];
+
+        foreach ((array)$this->deploymentConfig->get('cache/frontend', []) as $frontendId => $frontend) {
+            if (($frontend['backend'] ?? null) === 'redis') {
+                $backends[] = $this->checkBackend(
+                    'cache_' . $frontendId,
+                    (array)($frontend['backend_options'] ?? [])
+                );
+            }
+        }
+
+        $session = (array)$this->deploymentConfig->get('session', []);
+        if (($session['save'] ?? null) === 'redis') {
+            $backends[] = $this->checkBackend('session', (array)($session['redis'] ?? []));
+        }
+
+        return ['backends' => $backends];
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @return array{purpose: string, reachable: bool, version: ?string}
+     */
+    private function checkBackend(string $purpose, array $options): array
+    {
+        $host = (string)($options['server'] ?? $options['host'] ?? '');
+        $port = (int)($options['port'] ?? 6379);
+        $database = (int)($options['database'] ?? 0);
+        $password = $options['password'] ?? null;
+
+        if ($host === '') {
+            return ['purpose' => $purpose, 'reachable' => false, 'version' => null];
+        }
+
+        try {
+            $client = new Credis_Client($host, $port, self::CONNECT_TIMEOUT_SECONDS, '', $database, $password ?: null);
+            $client->setMaxConnectRetries(0);
+            $info = $client->info();
+
+            return [
+                'purpose' => $purpose,
+                'reachable' => true,
+                'version' => $info['redis_version'] ?? null,
+            ];
+        } catch (Throwable) {
+            return ['purpose' => $purpose, 'reachable' => false, 'version' => null];
+        }
+    }
+}

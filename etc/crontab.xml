@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Cron:etc/crontab.xsd">
+    <group id="viewgento">
+        <job name="stacknuts_viewgento_send_report" instance="StackNuts\ViewGento\Cron\SendReport" method="execute">
+            <config_path>crontab/viewgento/jobs/stacknuts_viewgento_send_report/schedule/cron_expr</config_path>
+        </job>
+        <job name="stacknuts_viewgento_send_heartbeat" instance="StackNuts\ViewGento\Cron\SendHeartbeat" method="execute">
+            <config_path>crontab/viewgento/jobs/stacknuts_viewgento_send_heartbeat/schedule/cron_expr</config_path>
+        </job>
+    </group>
+</config>

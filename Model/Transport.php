@@ -1,0 +1,94 @@
+<?php
+/**
+ * Copyright © StackNuts. All rights reserved.
+ * See LICENSE for license details.
+ */
+
+declare(strict_types=1);
+
+namespace StackNuts\ViewGento\Model;
+
+use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\Serialize\Serializer\Json;
+use Psr\Log\LoggerInterface;
+use Throwable;
+
+/**
+ * Shared HTTPS delivery for both the full-collection report and the lightweight heartbeat -
+ * same auth headers, same HMAC signing, same tight timeouts (a slow/unreachable dashboard
+ * must never hang a site's cron), same success/failure logging. Kept separate from
+ * ReportSender/HeartbeatSender so that logic isn't duplicated between the two payload types.
+ */
+class Transport
+{
+    private const CONNECT_TIMEOUT_SECONDS = 5;
+    private const TOTAL_TIMEOUT_SECONDS = 10;
+
+    public function __construct(
+        private readonly Config $config,
+        private readonly PayloadSigner $payloadSigner,
+        private readonly Curl $curl,
+        private readonly Json $json,
+        private readonly LoggerInterface $logger
+    ) {
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    public function send(array $payload, string $logContext): bool
+    {
+        $endpoint = $this->config->getEndpointUrl();
+        $apiKey = $this->config->getApiKey();
+
+        if (!$endpoint || !$apiKey) {
+            $this->logger->warning(sprintf(
+                'ViewGento: cannot send %s - endpoint URL or API key is not configured.',
+                $logContext
+            ));
+            return false;
+        }
+
+        $body = $this->json->serialize($payload);
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer ' . $apiKey,
+            'X-ViewGento-Site-Id' => (string)($payload['site']['identifier'] ?? ''),
+        ];
+
+        $hmacSecret = $this->config->getHmacSecret();
+        if ($hmacSecret) {
+            $headers['X-ViewGento-Signature'] = $this->payloadSigner->sign($body, $hmacSecret);
+        }
+
+        $this->curl->setOption(CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT_SECONDS);
+        $this->curl->setOption(CURLOPT_TIMEOUT, self::TOTAL_TIMEOUT_SECONDS);
+        $this->curl->setHeaders($headers);
+
+        try {
+            $this->curl->post($endpoint, $body);
+        } catch (Throwable $e) {
+            $this->logger->warning(sprintf(
+                'ViewGento: failed to send %s: %s',
+                $logContext,
+                $e->getMessage()
+            ), ['exception' => $e]);
+            return false;
+        }
+
+        $status = $this->curl->getStatus();
+        if ($status >= 200 && $status < 300) {
+            $this->logger->info(sprintf('ViewGento: %s sent successfully (HTTP %d).', $logContext, $status));
+            return true;
+        }
+
+        $this->logger->warning(sprintf(
+            'ViewGento: dashboard responded with HTTP %d for %s: %s',
+            $status,
+            $logContext,
+            substr((string)$this->curl->getBody(), 0, 500)
+        ));
+
+        return false;
+    }
+}
