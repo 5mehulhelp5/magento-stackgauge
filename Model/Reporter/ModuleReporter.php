@@ -32,7 +32,7 @@ use Throwable;
  */
 class ModuleReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '2.1';
 
     public function __construct(
         private readonly FullModuleList $fullModuleList,
@@ -69,10 +69,16 @@ class ModuleReporter implements ReporterInterface
         $modules = [];
 
         foreach ($this->fullModuleList->getAll() as $name => $info) {
-            [$version, $source] = $this->resolveVersion($name, $info['setup_version'] ?? null, $lockedVersions);
+            $packageName = $this->readComposerPackageName($name);
+            [$version, $source] = $this->resolveVersion($packageName, $info['setup_version'] ?? null, $lockedVersions);
 
             $modules[] = Field::array($name, [
                 'name' => Field::varchar('Name', $name),
+                // The Composer package name (e.g. "magento/module-catalog"), not just the
+                // Magento module name - needed on the dashboard side to look up the latest
+                // available version from Packagist/Marketplace/vendor repositories, which are
+                // keyed by package name and have no idea what "Magento_Catalog" is.
+                'package' => Field::varchar('Composer Package', $packageName ?? ''),
                 'version' => Field::varchar('Version', $version ?? ''),
                 'version_source' => Field::varchar('Version Source', $source),
                 'enabled' => Field::bool('Enabled', $this->enabledModuleList->has($name)),
@@ -86,9 +92,8 @@ class ModuleReporter implements ReporterInterface
      * @param array<string, string> $lockedVersions
      * @return array{0: ?string, 1: string} [version, source]
      */
-    private function resolveVersion(string $moduleName, ?string $setupVersion, array $lockedVersions): array
+    private function resolveVersion(?string $packageName, ?string $setupVersion, array $lockedVersions): array
     {
-        $packageName = $this->readComposerPackageName($moduleName);
         if ($packageName !== null && isset($lockedVersions[$packageName])) {
             return [$lockedVersions[$packageName], 'composer_lock'];
         }
