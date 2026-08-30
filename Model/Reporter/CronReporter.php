@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Cron\Model\ResourceModel\Schedule\CollectionFactory;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
 /**
@@ -19,7 +20,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  */
 class CronReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
     private const ALIVE_THRESHOLD_MINUTES = 30;
 
     /**
@@ -37,6 +38,16 @@ class CronReporter implements ReporterInterface
     public function getName(): string
     {
         return 'cron';
+    }
+
+    public function getLabel(): string
+    {
+        return 'Cron';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Whether cron looks alive, plus last successful run per job code.';
     }
 
     public function getSchemaVersion(): string
@@ -73,10 +84,15 @@ class CronReporter implements ReporterInterface
         $alive = $mostRecentCreatedAt !== null
             && (time() - strtotime($mostRecentCreatedAt)) <= self::ALIVE_THRESHOLD_MINUTES * 60;
 
+        $jobFields = [];
+        foreach ($lastSuccessByJob as $jobCode => $finishedAt) {
+            $jobFields[$jobCode] = Field::varchar($jobCode, $finishedAt);
+        }
+
         return [
-            'alive' => $alive,
-            'last_schedule_generated_at' => $mostRecentCreatedAt,
-            'jobs' => $lastSuccessByJob,
+            'alive' => Field::bool('Alive', $alive),
+            'last_schedule_generated_at' => Field::varchar('Last Schedule Generated At', $mostRecentCreatedAt ?? ''),
+            'jobs' => Field::array('Last Successful Run Per Job', $jobFields),
         ];
     }
 }

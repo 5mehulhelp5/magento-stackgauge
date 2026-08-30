@@ -12,12 +12,13 @@ use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\State;
 use Magento\Framework\Filesystem;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
 class CoreReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly ProductMetadataInterface $productMetadata,
@@ -31,6 +32,16 @@ class CoreReporter implements ReporterInterface
         return 'core';
     }
 
+    public function getLabel(): string
+    {
+        return 'Core';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Edition, version, PHP version, deployment mode, and static content deploy state.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -39,11 +50,11 @@ class CoreReporter implements ReporterInterface
     public function getStatus(): array
     {
         return [
-            'edition' => $this->productMetadata->getEdition(),
-            'version' => $this->productMetadata->getVersion(),
-            'php_version' => PHP_VERSION,
-            'deployment_mode' => $this->appState->getMode(),
-            'static_content_deployed' => $this->isStaticContentDeployed(),
+            'edition' => Field::varchar('Edition', $this->productMetadata->getEdition()),
+            'version' => Field::varchar('Magento Version', $this->productMetadata->getVersion()),
+            'php_version' => Field::varchar('PHP Version', PHP_VERSION),
+            'deployment_mode' => Field::varchar('Deployment Mode', $this->appState->getMode()),
+            'static_content_deployed' => Field::bool('Static Content Deployed', $this->isStaticContentDeployed()),
         ];
     }
 

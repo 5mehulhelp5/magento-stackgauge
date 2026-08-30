@@ -19,7 +19,11 @@ use Magento\Framework\Module\ModuleListInterface;
  */
 class PayloadBuilder
 {
-    private const SCHEMA_VERSION = '1.0';
+    /**
+     * Bumped to 2.0 when every reporter's "fields" moved from raw scalars to typed Field
+     * values (see Api\Field) - a genuine envelope-shape break, not just a data change.
+     */
+    private const SCHEMA_VERSION = '2.0';
     private const MODULE_NAME = 'StackNuts_ViewGento';
 
     public function __construct(

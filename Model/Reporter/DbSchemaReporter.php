@@ -10,6 +10,7 @@ namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Module\ModuleResource;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
 /**
@@ -20,7 +21,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  */
 class DbSchemaReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly ModuleListInterface $moduleList,
@@ -31,6 +32,16 @@ class DbSchemaReporter implements ReporterInterface
     public function getName(): string
     {
         return 'db_schema';
+    }
+
+    public function getLabel(): string
+    {
+        return 'DB Schema Drift';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Modules whose code setup_version has moved ahead of what setup:upgrade has actually applied.';
     }
 
     public function getSchemaVersion(): string
@@ -55,16 +66,19 @@ class DbSchemaReporter implements ReporterInterface
             }
 
             if ($dbVersion !== $codeVersion) {
-                $drifted[] = [
-                    'module' => $name,
-                    'code_version' => $codeVersion,
-                    'db_version' => $dbVersion,
-                ];
+                $drifted[] = Field::array($name, [
+                    'module' => Field::varchar('Module', $name),
+                    'code_version' => Field::varchar('Code Version', $codeVersion),
+                    'db_version' => Field::varchar('DB Version', $dbVersion),
+                ]);
             } else {
                 $inSyncCount++;
             }
         }
 
-        return ['drifted' => $drifted, 'in_sync_count' => $inSyncCount];
+        return [
+            'drifted' => Field::array('Drifted Modules', $drifted),
+            'in_sync_count' => Field::number('In-Sync Module Count', $inSyncCount),
+        ];
     }
 }

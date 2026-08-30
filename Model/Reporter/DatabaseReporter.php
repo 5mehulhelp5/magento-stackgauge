@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Framework\App\ResourceConnection;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -20,7 +21,7 @@ use Throwable;
  */
 class DatabaseReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly ResourceConnection $resourceConnection
@@ -30,6 +31,16 @@ class DatabaseReporter implements ReporterInterface
     public function getName(): string
     {
         return 'database';
+    }
+
+    public function getLabel(): string
+    {
+        return 'Database';
+    }
+
+    public function getDescription(): string
+    {
+        return 'MySQL/MariaDB version and reachability.';
     }
 
     public function getSchemaVersion(): string
@@ -43,12 +54,19 @@ class DatabaseReporter implements ReporterInterface
             $versionString = (string)$this->resourceConnection->getConnection()->fetchOne('SELECT VERSION()');
 
             return [
-                'reachable' => true,
-                'version' => $versionString,
-                'distribution' => stripos($versionString, 'mariadb') !== false ? 'mariadb' : 'mysql',
+                'reachable' => Field::bool('Reachable', true),
+                'version' => Field::varchar('Version', $versionString),
+                'distribution' => Field::varchar(
+                    'Distribution',
+                    stripos($versionString, 'mariadb') !== false ? 'mariadb' : 'mysql'
+                ),
             ];
         } catch (Throwable) {
-            return ['reachable' => false, 'version' => null, 'distribution' => null];
+            return [
+                'reachable' => Field::bool('Reachable', false),
+                'version' => Field::varchar('Version', ''),
+                'distribution' => Field::varchar('Distribution', ''),
+            ];
         }
     }
 }

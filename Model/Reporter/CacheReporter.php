@@ -10,11 +10,13 @@ namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\PageCache\Model\Config as PageCacheConfig;
+use StackNuts\ViewGento\Api\Field\ArrayField;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
 class CacheReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly TypeListInterface $cacheTypeList,
@@ -27,6 +29,16 @@ class CacheReporter implements ReporterInterface
         return 'cache';
     }
 
+    public function getLabel(): string
+    {
+        return 'Cache';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Per-cache-type enabled/disabled status, plus which Full Page Cache type is active.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -37,14 +49,14 @@ class CacheReporter implements ReporterInterface
         $types = [];
 
         foreach ($this->cacheTypeList->getTypes() as $id => $info) {
-            $types[] = [
-                'type' => $id,
-                'status' => (int)($info['status'] ?? 0),
-            ];
+            $types[] = Field::array($id, [
+                'type' => Field::varchar('Type', $id),
+                'status' => Field::number('Status', (int)($info['status'] ?? 0)),
+            ]);
         }
 
         return [
-            'types' => $types,
+            'types' => Field::array('Cache Types', $types),
             'full_page_cache' => $this->getFullPageCacheStatus(),
         ];
     }
@@ -57,18 +69,20 @@ class CacheReporter implements ReporterInterface
      * their raw type_id rather than by name, since this module has no way to know every
      * third-party type id in advance.
      */
-    private function getFullPageCacheStatus(): array
+    private function getFullPageCacheStatus(): ArrayField
     {
         $typeId = (int)$this->pageCacheConfig->getType();
 
-        return [
-            'enabled' => $this->pageCacheConfig->isEnabled(),
-            'type_id' => $typeId,
-            'type_label' => match ($typeId) {
-                PageCacheConfig::BUILT_IN => 'built_in',
-                PageCacheConfig::VARNISH => 'varnish',
-                default => 'custom',
-            },
-        ];
+        $typeLabel = match ($typeId) {
+            PageCacheConfig::BUILT_IN => 'built_in',
+            PageCacheConfig::VARNISH => 'varnish',
+            default => 'custom',
+        };
+
+        return Field::array('Full Page Cache', [
+            'enabled' => Field::bool('Enabled', $this->pageCacheConfig->isEnabled()),
+            'type_id' => Field::number('Type ID', $typeId),
+            'type_label' => Field::varchar('Type Label', $typeLabel),
+        ]);
     }
 }

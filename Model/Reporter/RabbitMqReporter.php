@@ -11,6 +11,8 @@ namespace StackNuts\ViewGento\Model\Reporter;
 use Magento\Framework\Amqp\Config as AmqpConfig;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\MessageQueue\Topology\ConfigInterface as TopologyConfigInterface;
+use StackNuts\ViewGento\Api\Field\ArrayField;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -27,7 +29,7 @@ use Throwable;
  */
 class RabbitMqReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
     private const AMQP_CONNECTION = 'amqp';
 
     public function __construct(
@@ -42,6 +44,16 @@ class RabbitMqReporter implements ReporterInterface
         return 'rabbitmq';
     }
 
+    public function getLabel(): string
+    {
+        return 'RabbitMQ';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Per-queue message/consumer count for every queue routed through the "amqp" connection, if configured.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -50,7 +62,7 @@ class RabbitMqReporter implements ReporterInterface
     public function getStatus(): array
     {
         if (!$this->deploymentConfig->get('queue/amqp/host')) {
-            return ['configured' => false];
+            return ['configured' => Field::bool('Configured', false)];
         }
 
         try {
@@ -58,7 +70,11 @@ class RabbitMqReporter implements ReporterInterface
             // queue - a channel is required either way, so this isn't extra round trips.
             $this->amqpConfig->getChannel();
         } catch (Throwable) {
-            return ['configured' => true, 'reachable' => false, 'queues' => []];
+            return [
+                'configured' => Field::bool('Configured', true),
+                'reachable' => Field::bool('Reachable', false),
+                'queues' => Field::array('Queues', []),
+            ];
         }
 
         $queues = [];
@@ -70,25 +86,36 @@ class RabbitMqReporter implements ReporterInterface
             $queues[] = $this->checkQueue($queueConfigItem->getName());
         }
 
-        return ['configured' => true, 'reachable' => true, 'queues' => $queues];
+        return [
+            'configured' => Field::bool('Configured', true),
+            'reachable' => Field::bool('Reachable', true),
+            'queues' => Field::array('Queues', $queues),
+        ];
     }
 
-    /**
-     * @return array{name: string, exists: bool, messages: int, consumers: int}
-     */
-    private function checkQueue(string $name): array
+    private function checkQueue(string $name): ArrayField
     {
         try {
             // A queue declared in Magento's topology may not exist on the broker yet if no
             // consumer has ever run - NOT_FOUND is a normal outcome here, not a failure.
             [, $messageCount, $consumerCount] = $this->amqpConfig->getChannel()->queue_declare($name, true);
 
-            return ['name' => $name, 'exists' => true, 'messages' => $messageCount, 'consumers' => $consumerCount];
+            return $this->queueField($name, true, $messageCount, $consumerCount);
         } catch (Throwable) {
             // A failed passive declare (e.g. NOT_FOUND) closes the channel at the protocol
             // level - getChannel() transparently reconnects on its next call, so the next
             // queue in the loop isn't affected.
-            return ['name' => $name, 'exists' => false, 'messages' => 0, 'consumers' => 0];
+            return $this->queueField($name, false, 0, 0);
         }
+    }
+
+    private function queueField(string $name, bool $exists, int $messages, int $consumers): ArrayField
+    {
+        return Field::array($name, [
+            'name' => Field::varchar('Name', $name),
+            'exists' => Field::bool('Exists', $exists),
+            'messages' => Field::number('Messages', $messages),
+            'consumers' => Field::number('Consumers', $consumers),
+        ]);
     }
 }

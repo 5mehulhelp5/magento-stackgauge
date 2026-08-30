@@ -11,11 +11,12 @@ namespace StackNuts\ViewGento\Model\Reporter;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\MaintenanceMode;
 use Magento\Framework\Module\ModuleListInterface;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
 class SecurityReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
     private const DEFAULT_ADMIN_PATH = 'admin';
 
     public function __construct(
@@ -28,6 +29,16 @@ class SecurityReporter implements ReporterInterface
     public function getName(): string
     {
         return 'security';
+    }
+
+    public function getLabel(): string
+    {
+        return 'Security';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Whether the admin path is still the default, maintenance-mode flag, sample-data modules present.';
     }
 
     public function getSchemaVersion(): string
@@ -46,10 +57,16 @@ class SecurityReporter implements ReporterInterface
             // Deliberately a boolean, not the actual admin path string - sending every
             // client's real (deliberately obscured) admin URL to a third-party dashboard
             // would concentrate exactly the secret that obscurity is meant to protect.
-            'is_default_admin_path' => $this->getAdminFrontName() === self::DEFAULT_ADMIN_PATH,
-            'maintenance_mode' => $this->maintenanceMode->isOn(),
-            'sample_data_present' => $sampleDataModules !== [],
-            'sample_data_modules' => $sampleDataModules,
+            'is_default_admin_path' => Field::bool(
+                'Is Default Admin Path',
+                $this->getAdminFrontName() === self::DEFAULT_ADMIN_PATH
+            ),
+            'maintenance_mode' => Field::bool('Maintenance Mode', $this->maintenanceMode->isOn()),
+            'sample_data_present' => Field::bool('Sample Data Present', $sampleDataModules !== []),
+            'sample_data_modules' => Field::array('Sample Data Modules', array_map(
+                static fn (string $name) => Field::varchar($name, $name),
+                $sampleDataModules
+            )),
         ];
     }
 

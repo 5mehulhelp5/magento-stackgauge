@@ -10,6 +10,8 @@ namespace StackNuts\ViewGento\Model\Reporter;
 
 use Credis_Client;
 use Magento\Framework\App\DeploymentConfig;
+use StackNuts\ViewGento\Api\Field\ArrayField;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -24,7 +26,7 @@ use Throwable;
  */
 class RedisReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     /**
      * A slow/unreachable Redis must not stall the whole report - this is collection-time
@@ -40,6 +42,16 @@ class RedisReporter implements ReporterInterface
     public function getName(): string
     {
         return 'redis';
+    }
+
+    public function getLabel(): string
+    {
+        return 'Redis';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Reachability and version of Redis-backed cache and session backends, checked separately.';
     }
 
     public function getSchemaVersion(): string
@@ -65,14 +77,13 @@ class RedisReporter implements ReporterInterface
             $backends[] = $this->checkBackend('session', (array)($session['redis'] ?? []));
         }
 
-        return ['backends' => $backends];
+        return ['backends' => Field::array('Backends', $backends)];
     }
 
     /**
      * @param array<string, mixed> $options
-     * @return array{purpose: string, reachable: bool, version: ?string}
      */
-    private function checkBackend(string $purpose, array $options): array
+    private function checkBackend(string $purpose, array $options): ArrayField
     {
         $host = (string)($options['server'] ?? $options['host'] ?? '');
         $port = (int)($options['port'] ?? 6379);
@@ -80,7 +91,7 @@ class RedisReporter implements ReporterInterface
         $password = $options['password'] ?? null;
 
         if ($host === '') {
-            return ['purpose' => $purpose, 'reachable' => false, 'version' => null];
+            return $this->backendField($purpose, false, null);
         }
 
         try {
@@ -88,13 +99,18 @@ class RedisReporter implements ReporterInterface
             $client->setMaxConnectRetries(0);
             $info = $client->info();
 
-            return [
-                'purpose' => $purpose,
-                'reachable' => true,
-                'version' => $info['redis_version'] ?? null,
-            ];
+            return $this->backendField($purpose, true, $info['redis_version'] ?? null);
         } catch (Throwable) {
-            return ['purpose' => $purpose, 'reachable' => false, 'version' => null];
+            return $this->backendField($purpose, false, null);
         }
+    }
+
+    private function backendField(string $purpose, bool $reachable, ?string $version): ArrayField
+    {
+        return Field::array($purpose, [
+            'purpose' => Field::varchar('Purpose', $purpose),
+            'reachable' => Field::bool('Reachable', $reachable),
+            'version' => Field::varchar('Version', $version ?? ''),
+        ]);
     }
 }

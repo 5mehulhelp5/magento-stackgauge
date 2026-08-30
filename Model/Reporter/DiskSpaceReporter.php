@@ -10,6 +10,8 @@ namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
+use StackNuts\ViewGento\Api\Field\ArrayField;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -23,7 +25,7 @@ use Throwable;
  */
 class DiskSpaceReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     /**
      * @var array<string, string>
@@ -44,6 +46,16 @@ class DiskSpaceReporter implements ReporterInterface
         return 'disk';
     }
 
+    public function getLabel(): string
+    {
+        return 'Disk Space';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Free/total bytes for var/log, var/cache, and media, checked independently.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -57,13 +69,10 @@ class DiskSpaceReporter implements ReporterInterface
             $volumes[] = $this->checkVolume($purpose, $directoryCode);
         }
 
-        return ['volumes' => $volumes];
+        return ['volumes' => Field::array('Volumes', $volumes)];
     }
 
-    /**
-     * @return array{purpose: string, free_bytes: ?int, total_bytes: ?int, free_percent: ?float}
-     */
-    private function checkVolume(string $purpose, string $directoryCode): array
+    private function checkVolume(string $purpose, string $directoryCode): ArrayField
     {
         try {
             $path = $this->filesystem->getDirectoryRead($directoryCode)->getAbsolutePath();
@@ -71,17 +80,28 @@ class DiskSpaceReporter implements ReporterInterface
             $total = disk_total_space($path);
 
             if ($free === false || $total === false || $total <= 0) {
-                return ['purpose' => $purpose, 'free_bytes' => null, 'total_bytes' => null, 'free_percent' => null];
+                return $this->volumeField($purpose, false, 0, 0, 0.0);
             }
 
-            return [
-                'purpose' => $purpose,
-                'free_bytes' => (int)$free,
-                'total_bytes' => (int)$total,
-                'free_percent' => round(($free / $total) * 100, 1),
-            ];
+            return $this->volumeField($purpose, true, (int)$free, (int)$total, round(($free / $total) * 100, 1));
         } catch (Throwable) {
-            return ['purpose' => $purpose, 'free_bytes' => null, 'total_bytes' => null, 'free_percent' => null];
+            return $this->volumeField($purpose, false, 0, 0, 0.0);
         }
+    }
+
+    private function volumeField(
+        string $purpose,
+        bool $measurable,
+        int $freeBytes,
+        int $totalBytes,
+        float $freePercent
+    ): ArrayField {
+        return Field::array($purpose, [
+            'purpose' => Field::varchar('Purpose', $purpose),
+            'measurable' => Field::bool('Measurable', $measurable),
+            'free_bytes' => Field::number('Free Bytes', $freeBytes),
+            'total_bytes' => Field::number('Total Bytes', $totalBytes),
+            'free_percent' => Field::number('Free Percent', $freePercent),
+        ]);
     }
 }

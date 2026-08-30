@@ -14,6 +14,7 @@ use Magento\Framework\Filesystem;
 use Magento\Framework\Module\FullModuleList;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Serialize\Serializer\Json;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -31,7 +32,7 @@ use Throwable;
  */
 class ModuleReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly FullModuleList $fullModuleList,
@@ -47,6 +48,16 @@ class ModuleReporter implements ReporterInterface
         return 'modules';
     }
 
+    public function getLabel(): string
+    {
+        return 'Modules';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Every registered module (enabled or not), with its resolved code version.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -60,15 +71,15 @@ class ModuleReporter implements ReporterInterface
         foreach ($this->fullModuleList->getAll() as $name => $info) {
             [$version, $source] = $this->resolveVersion($name, $info['setup_version'] ?? null, $lockedVersions);
 
-            $modules[] = [
-                'name' => $name,
-                'version' => $version,
-                'version_source' => $source,
-                'enabled' => $this->enabledModuleList->has($name),
-            ];
+            $modules[] = Field::array($name, [
+                'name' => Field::varchar('Name', $name),
+                'version' => Field::varchar('Version', $version ?? ''),
+                'version_source' => Field::varchar('Version Source', $source),
+                'enabled' => Field::bool('Enabled', $this->enabledModuleList->has($name)),
+            ]);
         }
 
-        return ['modules' => $modules];
+        return ['modules' => Field::array('Modules', $modules)];
     }
 
     /**

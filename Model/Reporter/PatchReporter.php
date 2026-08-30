@@ -12,6 +12,7 @@ use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Shell;
 use Psr\Log\LoggerInterface;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -25,7 +26,7 @@ use Throwable;
  */
 class PatchReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
     private const MAX_OUTPUT_LINES = 30;
     private const MAX_LINE_LENGTH = 120;
 
@@ -41,6 +42,16 @@ class PatchReporter implements ReporterInterface
         return 'patches';
     }
 
+    public function getLabel(): string
+    {
+        return 'Patches';
+    }
+
+    public function getDescription(): string
+    {
+        return "Applied Adobe Quality Patches, via vendor/bin/patch-status when it's present.";
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -52,14 +63,15 @@ class PatchReporter implements ReporterInterface
             . '/vendor/bin/patch-status';
 
         if (!is_file($binary) || !is_executable($binary)) {
-            return ['detectable' => false, 'applied' => []];
+            return ['detectable' => Field::bool('Detectable', false), 'raw_output' => Field::array('Output', [])];
         }
 
         try {
             $output = $this->shell->execute($binary);
         } catch (Throwable $e) {
             $this->logger->warning('ViewGento: vendor/bin/patch-status execution failed: ' . $e->getMessage());
-            return ['detectable' => false, 'applied' => []];
+
+            return ['detectable' => Field::bool('Detectable', false), 'raw_output' => Field::array('Output', [])];
         }
 
         $lines = array_slice(
@@ -67,14 +79,16 @@ class PatchReporter implements ReporterInterface
             0,
             self::MAX_OUTPUT_LINES
         );
-        $lines = array_map(
-            static fn (string $line): string => substr($line, 0, self::MAX_LINE_LENGTH),
-            $lines
-        );
 
         return [
-            'detectable' => true,
-            'raw_output' => $lines,
+            'detectable' => Field::bool('Detectable', true),
+            'raw_output' => Field::array('Output', array_map(
+                static fn (string $line): \StackNuts\ViewGento\Api\Field\VarcharField => Field::varchar(
+                    '',
+                    substr($line, 0, self::MAX_LINE_LENGTH)
+                ),
+                $lines
+            )),
         ];
     }
 }

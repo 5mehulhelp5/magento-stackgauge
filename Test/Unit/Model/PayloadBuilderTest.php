@@ -33,7 +33,7 @@ class PayloadBuilderTest extends TestCase
         $payload = $builder->build();
 
         $this->assertSame('full', $payload['type']);
-        $this->assertSame('1.0', $payload['schema_version']);
+        $this->assertSame('2.0', $payload['schema_version']);
         $this->assertSame('1.0.0', $payload['module_version']);
         $this->assertSame(['identifier' => 'site-123'], $payload['site']);
         $this->assertSame(['core' => ['schema_version' => '1.0', 'edition' => 'Community']], $payload['reporters']);

@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 namespace StackNuts\ViewGento\Model;
 
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
+use StackNuts\ViewGento\Api\Field\FieldInterface;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use StackNuts\ViewGento\Model\System\Config\Source\ReporterList;
 use Throwable;
@@ -16,9 +18,11 @@ use Throwable;
 /**
  * Runs every registered reporter (built-in and third-party, collected via the "reporters"
  * di.xml array argument) and assembles the "reporters" block of the payload. A reporter
- * that throws never blocks the others or aborts the send - its block becomes
- * {"error": "..."} instead, so a broken third-party integration degrades gracefully rather
- * than silently dropping the whole report.
+ * that throws - including one that returns something other than a Field for any key, which
+ * this class checks explicitly since PHP can't express "array<string, FieldInterface>" as
+ * an enforceable native return type - never blocks the others or aborts the send; its block
+ * becomes {"error": "..."} instead, so a broken third-party integration degrades gracefully
+ * rather than silently dropping the whole report.
  */
 class ReporterPool
 {
@@ -72,7 +76,24 @@ class ReporterPool
     private function collectOne(ReporterInterface $reporter): array
     {
         try {
-            return array_merge(['schema_version' => $reporter->getSchemaVersion()], $reporter->getStatus());
+            $fields = $reporter->getStatus();
+
+            foreach ($fields as $key => $field) {
+                if (!$field instanceof FieldInterface) {
+                    throw new InvalidArgumentException(sprintf(
+                        'field "%s" must be a StackNuts\ViewGento\Api\Field\FieldInterface instance, got %s',
+                        $key,
+                        get_debug_type($field)
+                    ));
+                }
+            }
+
+            return [
+                'schema_version' => $reporter->getSchemaVersion(),
+                'label' => $reporter->getLabel(),
+                'description' => $reporter->getDescription(),
+                'fields' => $fields,
+            ];
         } catch (Throwable $e) {
             $this->logger->warning(sprintf(
                 'ViewGento: reporter "%s" failed: %s',

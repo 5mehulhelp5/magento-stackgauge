@@ -11,12 +11,16 @@ namespace StackNuts\ViewGento\Test\Unit\Model;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use StackNuts\ViewGento\Model\Config;
 use StackNuts\ViewGento\Model\ReporterPool;
 
 class ReporterPoolTest extends TestCase
 {
+    /**
+     * @param array<string, mixed> $status
+     */
     private function fakeReporter(string $name, string $schemaVersion, array $status): ReporterInterface
     {
         return new class ($name, $schemaVersion, $status) implements ReporterInterface {
@@ -30,6 +34,16 @@ class ReporterPoolTest extends TestCase
             public function getName(): string
             {
                 return $this->name;
+            }
+
+            public function getLabel(): string
+            {
+                return ucfirst($this->name);
+            }
+
+            public function getDescription(): string
+            {
+                return 'A fake reporter for tests.';
             }
 
             public function getSchemaVersion(): string
@@ -56,6 +70,16 @@ class ReporterPoolTest extends TestCase
                 return $this->name;
             }
 
+            public function getLabel(): string
+            {
+                return ucfirst($this->name);
+            }
+
+            public function getDescription(): string
+            {
+                return 'A fake reporter for tests.';
+            }
+
             public function getSchemaVersion(): string
             {
                 return '1.0';
@@ -68,19 +92,35 @@ class ReporterPoolTest extends TestCase
         };
     }
 
-    public function testMergesSchemaVersionIntoEachBlock(): void
+    /**
+     * A badly-behaved reporter returning a raw scalar instead of a Field - exactly the
+     * mistake ReporterPool's validation exists to catch.
+     */
+    private function malformedReporter(string $name): ReporterInterface
+    {
+        return $this->fakeReporter($name, '1.0', ['edition' => 'Community']);
+    }
+
+    public function testWrapsFieldsUnderTheReporterEnvelope(): void
     {
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '2.0', ['edition' => 'Community'])],
+            [$this->fakeReporter('core', '2.0', ['edition' => Field::varchar('Edition', 'Community')])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
 
-        $this->assertSame(
-            ['core' => ['schema_version' => '2.0', 'edition' => 'Community']],
+        $this->assertEquals(
+            [
+                'core' => [
+                    'schema_version' => '2.0',
+                    'label' => 'Core',
+                    'description' => 'A fake reporter for tests.',
+                    'fields' => ['edition' => Field::varchar('Edition', 'Community')],
+                ],
+            ],
             $pool->collect()
         );
     }
@@ -91,7 +131,7 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn(['modules']); // "core" not enabled
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '1.0', ['edition' => 'Community'])],
+            [$this->fakeReporter('core', '1.0', ['edition' => Field::varchar('Edition', 'Community')])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -105,15 +145,15 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn([]); // nothing built-in enabled
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('cloudflare', '1.0', ['purge_queue_backlog' => 0])],
+            [$this->fakeReporter('cloudflare', '1.0', ['purge_queue_backlog' => Field::number('Backlog', 0)])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
 
-        $this->assertSame(
-            ['cloudflare' => ['schema_version' => '1.0', 'purge_queue_backlog' => 0]],
-            $pool->collect()
-        );
+        $result = $pool->collect();
+        $this->assertArrayHasKey('cloudflare', $result);
+        $this->assertSame('1.0', $result['cloudflare']['schema_version']);
+        $this->assertEquals(['purge_queue_backlog' => Field::number('Backlog', 0)], $result['cloudflare']['fields']);
     }
 
     public function testAFailingReporterProducesAnErrorBlockWithoutBlockingOthers(): void
@@ -127,18 +167,29 @@ class ReporterPoolTest extends TestCase
         $pool = new ReporterPool(
             [
                 $this->throwingReporter('core', 'boom'),
-                $this->fakeReporter('cron', '1.0', ['alive' => true]),
+                $this->fakeReporter('cron', '1.0', ['alive' => Field::bool('Alive', true)]),
             ],
             $config,
             $logger
         );
 
-        $this->assertSame(
-            [
-                'core' => ['error' => 'boom'],
-                'cron' => ['schema_version' => '1.0', 'alive' => true],
-            ],
-            $pool->collect()
-        );
+        $result = $pool->collect();
+        $this->assertSame(['error' => 'boom'], $result['core']);
+        $this->assertSame('1.0', $result['cron']['schema_version']);
+    }
+
+    public function testAReporterReturningARawScalarInsteadOfAFieldProducesAnErrorBlock(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getEnabledReporterCodes')->willReturn(['core']);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning');
+
+        $pool = new ReporterPool([$this->malformedReporter('core')], $config, $logger);
+
+        $result = $pool->collect();
+        $this->assertArrayHasKey('error', $result['core']);
+        $this->assertStringContainsString('FieldInterface', $result['core']['error']);
     }
 }

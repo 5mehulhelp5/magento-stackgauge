@@ -11,12 +11,13 @@ namespace StackNuts\ViewGento\Model\Reporter;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Serialize\Serializer\Json;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
 class ComposerReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     /**
      * A small, deliberately fixed watch-list rather than every package in the lock file -
@@ -44,6 +45,16 @@ class ComposerReporter implements ReporterInterface
         return 'composer';
     }
 
+    public function getLabel(): string
+    {
+        return 'Composer';
+    }
+
+    public function getDescription(): string
+    {
+        return 'composer.lock hash plus a small watch-list of key platform package versions.';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -54,19 +65,22 @@ class ComposerReporter implements ReporterInterface
         $root = $this->filesystem->getDirectoryRead(DirectoryList::ROOT);
 
         if (!$root->isExist('composer.lock')) {
-            return ['lock_hash' => null, 'key_packages' => []];
+            return [
+                'lock_hash' => Field::varchar('Lock Hash', ''),
+                'key_packages' => Field::array('Key Packages', []),
+            ];
         }
 
         $contents = $root->readFile('composer.lock');
 
         return [
-            'lock_hash' => 'sha256:' . hash('sha256', $contents),
-            'key_packages' => $this->extractKeyPackages($contents),
+            'lock_hash' => Field::varchar('Lock Hash', 'sha256:' . hash('sha256', $contents)),
+            'key_packages' => Field::array('Key Packages', $this->extractKeyPackages($contents)),
         ];
     }
 
     /**
-     * @return array<string, string|null>
+     * @return array<string, \StackNuts\ViewGento\Api\Field\VarcharField>
      */
     private function extractKeyPackages(string $lockFileContents): array
     {
@@ -77,7 +91,7 @@ class ComposerReporter implements ReporterInterface
             foreach ($data['packages'] ?? [] as $package) {
                 $name = $package['name'] ?? null;
                 if ($name !== null && in_array($name, self::KEY_PACKAGES, true)) {
-                    $keyPackages[$name] = $package['version'] ?? null;
+                    $keyPackages[$name] = Field::varchar($name, (string)($package['version'] ?? ''));
                 }
             }
         } catch (Throwable) {

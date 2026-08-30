@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\AdvancedSearch\Model\Client\ClientResolver;
+use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
@@ -22,12 +23,13 @@ use Throwable;
  */
 class SearchReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     /**
      * Engines other than Elasticsearch/OpenSearch (chiefly "mysql", still a valid choice on
-     * older stores) have no cluster to ping - reachable stays null rather than false, since
-     * false would misleadingly suggest something is broken.
+     * older stores) have no cluster to ping - "pingable" stays false rather than reporting a
+     * misleading "reachable: false", since that would suggest something is broken rather
+     * than simply not applicable to this engine.
      */
     private const PINGABLE_ENGINES = ['elasticsearch5', 'elasticsearch7', 'elasticsearch8', 'opensearch'];
 
@@ -41,6 +43,16 @@ class SearchReporter implements ReporterInterface
         return 'search';
     }
 
+    public function getLabel(): string
+    {
+        return 'Search';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Configured search engine and whether it is actually reachable (Elasticsearch/OpenSearch only).';
+    }
+
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
@@ -49,17 +61,21 @@ class SearchReporter implements ReporterInterface
     public function getStatus(): array
     {
         $engine = $this->clientResolver->getCurrentEngine();
+        $pingable = in_array($engine, self::PINGABLE_ENGINES, true);
 
-        if (!in_array($engine, self::PINGABLE_ENGINES, true)) {
-            return ['engine' => $engine, 'reachable' => null];
+        $reachable = false;
+        if ($pingable) {
+            try {
+                $reachable = (bool)$this->clientResolver->create()->testConnection();
+            } catch (Throwable) {
+                $reachable = false;
+            }
         }
 
-        try {
-            $reachable = (bool)$this->clientResolver->create()->testConnection();
-        } catch (Throwable) {
-            $reachable = false;
-        }
-
-        return ['engine' => $engine, 'reachable' => $reachable];
+        return [
+            'engine' => Field::varchar('Engine', $engine),
+            'pingable' => Field::bool('Pingable', $pingable),
+            'reachable' => Field::bool('Reachable', $reachable),
+        ];
     }
 }
