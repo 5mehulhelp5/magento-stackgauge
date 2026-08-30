@@ -24,6 +24,13 @@ class Transport
     private const CONNECT_TIMEOUT_SECONDS = 5;
     private const TOTAL_TIMEOUT_SECONDS = 10;
 
+    /**
+     * Below this size gzip's own overhead (header/footer/table) isn't worth paying - the
+     * tiny heartbeat body is well under it, the full report (hundreds of KB once a site has
+     * a few hundred modules) is well over it.
+     */
+    private const GZIP_THRESHOLD_BYTES = 1024;
+
     public function __construct(
         private readonly Config $config,
         private readonly PayloadSigner $payloadSigner,
@@ -58,7 +65,18 @@ class Transport
 
         $hmacSecret = $this->config->getHmacSecret();
         if ($hmacSecret) {
+            // Sign the raw, uncompressed body - the dashboard decompresses before verifying,
+            // so the signed bytes never depend on gzip's own (non-deterministic) output.
             $headers['X-ViewGento-Signature'] = $this->payloadSigner->sign($body, $hmacSecret);
+        }
+
+        $wireBody = $body;
+        if (strlen($body) >= self::GZIP_THRESHOLD_BYTES) {
+            $compressed = gzencode($body);
+            if ($compressed !== false) {
+                $wireBody = $compressed;
+                $headers['Content-Encoding'] = 'gzip';
+            }
         }
 
         $this->curl->setOption(CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT_SECONDS);
@@ -66,7 +84,7 @@ class Transport
         $this->curl->setHeaders($headers);
 
         try {
-            $this->curl->post($endpoint, $body);
+            $this->curl->post($endpoint, $wireBody);
         } catch (Throwable $e) {
             $this->logger->warning(sprintf(
                 'ViewGento: failed to send %s: %s',
