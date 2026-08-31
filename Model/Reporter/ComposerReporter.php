@@ -11,11 +11,12 @@ namespace StackNuts\ViewGento\Model\Reporter;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Serialize\Serializer\Json;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
 
-class ComposerReporter implements ReporterInterface
+class ComposerReporter implements ReporterInterface, DeclaresCadenceInterface
 {
     private const SCHEMA_VERSION = '2.0';
 
@@ -58,6 +59,11 @@ class ComposerReporter implements ReporterInterface
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
+    }
+
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
     }
 
     public function getStatus(): array

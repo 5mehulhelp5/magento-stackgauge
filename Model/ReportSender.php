@@ -9,13 +9,16 @@ declare(strict_types=1);
 namespace StackNuts\ViewGento\Model;
 
 use Psr\Log\LoggerInterface;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 
 /**
- * Orchestrates the full-collection report: build the payload, log it, then send it. Used by
- * Cron\SendReport (gated on the "Enabled" toggle, via send()), the CLI command (dry-run
- * calls buildPayload() directly; --force calls sendNow()), and the admin Test Ping button
- * (always sendNow(), since an explicit admin click should work even before "Enabled" is
- * switched on while the site is still being configured).
+ * Orchestrates both the full-collection report and the config-sync send: build the payload,
+ * log it, then send it. Used by Cron\SendReport/SendDailyReport (gated on the "Enabled"
+ * toggle, via send()/sendConfigSync()), the CLI command (dry-run calls buildPayload()/
+ * buildConfigSync() directly; --force calls sendNow()), the admin Test Ping button (always
+ * sendNow()/sendConfigSyncNow(), since an explicit admin click should work even before
+ * "Enabled" is switched on while the site is still being configured), and
+ * Observer\ConfigSyncOnSectionSave (always sendConfigSyncNow(), same mid-setup rationale).
  */
 class ReportSender
 {
@@ -30,21 +33,41 @@ class ReportSender
     /**
      * @return array<string, mixed>
      */
-    public function buildPayload(): array
+    public function buildPayload(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
     {
-        return $this->payloadBuilder->build();
+        return $this->payloadBuilder->build($cadence);
     }
 
     /**
-     * Respects the admin "Enabled" toggle - this is what the cron job calls.
+     * @return array<string, mixed>
      */
-    public function send(): bool
+    public function buildConfigSync(): array
+    {
+        return $this->payloadBuilder->buildConfigSync();
+    }
+
+    /**
+     * Respects the admin "Enabled" toggle - this is what the hourly/daily cron jobs call.
+     */
+    public function send(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): bool
     {
         if (!$this->config->isEnabled()) {
             return false;
         }
 
-        return $this->sendNow();
+        return $this->sendNow($cadence);
+    }
+
+    /**
+     * Respects the admin "Enabled" toggle - this is what Cron\SendConfigSync calls.
+     */
+    public function sendConfigSync(): bool
+    {
+        if (!$this->config->isEnabled()) {
+            return false;
+        }
+
+        return $this->sendConfigSyncNow();
     }
 
     /**
@@ -56,11 +79,23 @@ class ReportSender
      * can be greped/tailed/piped to `jq` directly - a "just enable it and read the log"
      * fallback for the first-instance use case, not just a debugging aid.
      */
-    public function sendNow(): bool
+    public function sendNow(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): bool
     {
-        $payload = $this->buildPayload();
-        $this->logger->info('ViewGento: full report ' . json_encode($payload, JSON_UNESCAPED_SLASHES));
+        $payload = $this->buildPayload($cadence);
+        $this->logger->info("ViewGento: full report ({$cadence}) " . json_encode($payload, JSON_UNESCAPED_SLASHES));
 
-        return $this->transport->send($payload, 'report');
+        return $this->transport->send($payload, "report ({$cadence})");
+    }
+
+    /**
+     * Sends the config-sync payload unconditionally, ignoring the "Enabled" toggle - same
+     * mid-setup rationale as sendNow().
+     */
+    public function sendConfigSyncNow(): bool
+    {
+        $payload = $this->buildConfigSync();
+        $this->logger->info('ViewGento: config sync ' . json_encode($payload, JSON_UNESCAPED_SLASHES));
+
+        return $this->transport->send($payload, 'config sync');
     }
 }

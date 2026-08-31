@@ -51,6 +51,22 @@ final class Field
     }
 
     /**
+     * A NumberField also tracked over time for alerting - see TrackableNumberField and
+     * Api\MetricCatalogInterface. $metricKey should match a MetricDefinition this reporter
+     * declares via getTrackableMetrics(); $aggregation is how the dashboard combines
+     * multiple samples of this metric over a time window (one of
+     * MetricDefinition::AGGREGATION_*).
+     */
+    public static function trackableNumber(
+        string $label,
+        int|float $value,
+        string $metricKey,
+        string $aggregation
+    ): TrackableNumberField {
+        return new TrackableNumberField($label, $value, $metricKey, $aggregation);
+    }
+
+    /**
      * @param array<int|string, FieldInterface> $value
      */
     public static function array(string $label, array $value): ArrayField

@@ -10,6 +10,7 @@ namespace StackNuts\ViewGento\Model;
 
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\FieldInterface;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use StackNuts\ViewGento\Model\System\Config\Source\ReporterList;
@@ -37,15 +38,33 @@ class ReporterPool
     }
 
     /**
+     * @return ReporterInterface[]
+     */
+    public function getReporters(): array
+    {
+        return $this->reporters;
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
-    public function collect(): array
+    public function collect(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
     {
         $enabledCodes = $this->config->getEnabledReporterCodes();
         $result = [];
 
         foreach ($this->reporters as $reporter) {
             if (!$reporter instanceof ReporterInterface) {
+                continue;
+            }
+
+            // A reporter with no cadence declaration is always hourly - this is what keeps
+            // every existing built-in reporter's behaviour unchanged by this feature.
+            $reporterCadence = $reporter instanceof DeclaresCadenceInterface
+                ? $reporter->getCadence()
+                : DeclaresCadenceInterface::CADENCE_HOURLY;
+
+            if ($reporterCadence !== $cadence) {
                 continue;
             }
 

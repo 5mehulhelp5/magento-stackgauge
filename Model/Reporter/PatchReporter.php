@@ -12,6 +12,7 @@ use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Shell;
 use Psr\Log\LoggerInterface;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
@@ -24,7 +25,7 @@ use Throwable;
  * itself is only installed on stores that pulled it in) - matches the doc's original "if
  * detectable" hedge rather than overstating confidence.
  */
-class PatchReporter implements ReporterInterface
+class PatchReporter implements ReporterInterface, DeclaresCadenceInterface
 {
     private const SCHEMA_VERSION = '2.0';
     private const MAX_OUTPUT_LINES = 30;
@@ -55,6 +56,11 @@ class PatchReporter implements ReporterInterface
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
+    }
+
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
     }
 
     public function getStatus(): array

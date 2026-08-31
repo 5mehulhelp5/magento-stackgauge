@@ -11,6 +11,7 @@ namespace StackNuts\ViewGento\Test\Unit\Model;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use StackNuts\ViewGento\Model\Config;
@@ -18,6 +19,51 @@ use StackNuts\ViewGento\Model\ReporterPool;
 
 class ReporterPoolTest extends TestCase
 {
+    /**
+     * @param array<string, mixed> $status
+     */
+    private function fakeReporterWithCadence(string $name, string $cadence, array $status): ReporterInterface
+    {
+        return new class ($name, $cadence, $status) implements ReporterInterface, DeclaresCadenceInterface {
+            public function __construct(
+                private readonly string $name,
+                private readonly string $cadence,
+                private readonly array $status
+            ) {
+            }
+
+            public function getName(): string
+            {
+                return $this->name;
+            }
+
+            public function getLabel(): string
+            {
+                return ucfirst($this->name);
+            }
+
+            public function getDescription(): string
+            {
+                return 'A fake reporter for tests.';
+            }
+
+            public function getSchemaVersion(): string
+            {
+                return '1.0';
+            }
+
+            public function getCadence(): string
+            {
+                return $this->cadence;
+            }
+
+            public function getStatus(): array
+            {
+                return $this->status;
+            }
+        };
+    }
+
     /**
      * @param array<string, mixed> $status
      */
@@ -191,5 +237,56 @@ class ReporterPoolTest extends TestCase
         $result = $pool->collect();
         $this->assertArrayHasKey('error', $result['core']);
         $this->assertStringContainsString('FieldInterface', $result['core']['error']);
+    }
+
+    public function testAReporterWithNoCadenceDeclarationIsAlwaysTreatedAsHourly(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getEnabledReporterCodes')->willReturn(['core']);
+
+        $pool = new ReporterPool(
+            [$this->fakeReporter('core', '1.0', ['edition' => Field::varchar('Edition', 'Community')])],
+            $config,
+            $this->createStub(LoggerInterface::class)
+        );
+
+        $this->assertArrayHasKey('core', $pool->collect(DeclaresCadenceInterface::CADENCE_HOURLY));
+        $this->assertArrayNotHasKey('core', $pool->collect(DeclaresCadenceInterface::CADENCE_DAILY));
+    }
+
+    public function testADailyCadenceReporterIsExcludedFromAnHourlyCollection(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getEnabledReporterCodes')->willReturn(['modules']);
+
+        $pool = new ReporterPool(
+            [
+                $this->fakeReporterWithCadence(
+                    'modules',
+                    DeclaresCadenceInterface::CADENCE_DAILY,
+                    ['count' => Field::number('Count', 42)]
+                ),
+            ],
+            $config,
+            $this->createStub(LoggerInterface::class)
+        );
+
+        $this->assertSame([], $pool->collect(DeclaresCadenceInterface::CADENCE_HOURLY));
+        $this->assertArrayHasKey('modules', $pool->collect(DeclaresCadenceInterface::CADENCE_DAILY));
+    }
+
+    public function testGetReportersReturnsEveryRegisteredReporterRegardlessOfEnabledState(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getEnabledReporterCodes')->willReturn([]);
+
+        $reporters = [
+            $this->fakeReporter('core', '1.0', []),
+            $this->fakeReporter('cloudflare', '1.0', []),
+        ];
+
+        $pool = new ReporterPool($reporters, $config, $this->createStub(LoggerInterface::class));
+
+        $this->assertSame($reporters, $pool->getReporters());
     }
 }

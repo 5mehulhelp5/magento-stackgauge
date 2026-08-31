@@ -73,6 +73,26 @@
             <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>
         </arguments>
     </type>
+    <type name="StackNuts\ViewGento\Cron\SendDailyReport">
+        <arguments>
+            <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="StackNuts\ViewGento\Cron\SendConfigSync">
+        <arguments>
+            <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="StackNuts\ViewGento\Observer\ConfigSyncOnSectionSave">
+        <arguments>
+            <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="StackNuts\ViewGento\Model\MetricCatalogPool">
+        <arguments>
+            <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>
+        </arguments>
+    </type>
     <type name="StackNuts\ViewGento\Plugin\App\MaintenanceModePlugin">
         <arguments>
             <argument name="logger" xsi:type="object">StackNuts\ViewGento\Logger\Logger</argument>

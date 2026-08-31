@@ -8,5 +8,11 @@
         <job name="stacknuts_viewgento_send_heartbeat" instance="StackNuts\ViewGento\Cron\SendHeartbeat" method="execute">
             <config_path>crontab/viewgento/jobs/stacknuts_viewgento_send_heartbeat/schedule/cron_expr</config_path>
         </job>
+        <job name="stacknuts_viewgento_send_daily_report" instance="StackNuts\ViewGento\Cron\SendDailyReport" method="execute">
+            <config_path>crontab/viewgento/jobs/stacknuts_viewgento_send_daily_report/schedule/cron_expr</config_path>
+        </job>
+        <job name="stacknuts_viewgento_send_config_sync" instance="StackNuts\ViewGento\Cron\SendConfigSync" method="execute">
+            <config_path>crontab/viewgento/jobs/stacknuts_viewgento_send_config_sync/schedule/cron_expr</config_path>
+        </job>
     </group>
 </config>

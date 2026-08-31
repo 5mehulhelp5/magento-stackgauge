@@ -15,6 +15,16 @@
                             <cron_expr>*/5 * * * *</cron_expr>
                         </schedule>
                     </stacknuts_viewgento_send_heartbeat>
+                    <stacknuts_viewgento_send_daily_report>
+                        <schedule>
+                            <cron_expr>0 2 * * *</cron_expr>
+                        </schedule>
+                    </stacknuts_viewgento_send_daily_report>
+                    <stacknuts_viewgento_send_config_sync>
+                        <schedule>
+                            <cron_expr>30 2 * * *</cron_expr>
+                        </schedule>
+                    </stacknuts_viewgento_send_config_sync>
                 </jobs>
             </viewgento>
         </crontab>

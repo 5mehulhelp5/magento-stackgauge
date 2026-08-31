@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace StackNuts\ViewGento\Console\Command;
 
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Model\ReportSender;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,12 +18,16 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Manual verification without needing an admin Test Ping click: --dry-run proves the
  * collectors actually produce a well-formed payload on this environment; --force proves
- * end-to-end delivery even before the "Enabled" toggle is switched on in admin.
+ * end-to-end delivery even before the "Enabled" toggle is switched on in admin; --config-sync
+ * builds/sends the metric-catalog payload instead of a full report; --cadence picks which
+ * reporter tier a (non-config-sync) report covers.
  */
 class SendReportCommand extends Command
 {
     private const OPTION_DRY_RUN = 'dry-run';
     private const OPTION_FORCE = 'force';
+    private const OPTION_CONFIG_SYNC = 'config-sync';
+    private const OPTION_CADENCE = 'cadence';
 
     public function __construct(
         private readonly ReportSender $reportSender,
@@ -46,6 +51,19 @@ class SendReportCommand extends Command
                 null,
                 InputOption::VALUE_NONE,
                 'Send even if ViewGento is disabled in Stores > Configuration > Advanced > ViewGento'
+            )
+            ->addOption(
+                self::OPTION_CONFIG_SYNC,
+                null,
+                InputOption::VALUE_NONE,
+                'Build/send the config-sync payload (trackable metric catalog + defaults) instead of a full report'
+            )
+            ->addOption(
+                self::OPTION_CADENCE,
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Which reporter cadence tier to build/send: hourly or daily',
+                DeclaresCadenceInterface::CADENCE_HOURLY
             );
 
         parent::configure();
@@ -53,15 +71,21 @@ class SendReportCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if ($input->getOption(self::OPTION_CONFIG_SYNC)) {
+            return $this->executeConfigSync($input, $output);
+        }
+
+        $cadence = (string)$input->getOption(self::OPTION_CADENCE);
+
         if ($input->getOption(self::OPTION_DRY_RUN)) {
-            $payload = $this->reportSender->buildPayload();
+            $payload = $this->reportSender->buildPayload($cadence);
             $output->writeln((string)json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             return Command::SUCCESS;
         }
 
         $sent = $input->getOption(self::OPTION_FORCE)
-            ? $this->reportSender->sendNow()
-            : $this->reportSender->send();
+            ? $this->reportSender->sendNow($cadence)
+            : $this->reportSender->send($cadence);
 
         if ($sent) {
             $output->writeln('<info>Report sent.</info>');
@@ -70,6 +94,30 @@ class SendReportCommand extends Command
 
         $output->writeln(
             '<error>Report not sent - check that ViewGento is enabled (or pass --force) and that the endpoint '
+            . 'URL / API key are configured. See var/log/stacknuts_viewgento.log for details.</error>'
+        );
+        return Command::FAILURE;
+    }
+
+    private function executeConfigSync(InputInterface $input, OutputInterface $output): int
+    {
+        if ($input->getOption(self::OPTION_DRY_RUN)) {
+            $payload = $this->reportSender->buildConfigSync();
+            $output->writeln((string)json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return Command::SUCCESS;
+        }
+
+        $sent = $input->getOption(self::OPTION_FORCE)
+            ? $this->reportSender->sendConfigSyncNow()
+            : $this->reportSender->sendConfigSync();
+
+        if ($sent) {
+            $output->writeln('<info>Config sync sent.</info>');
+            return Command::SUCCESS;
+        }
+
+        $output->writeln(
+            '<error>Config sync not sent - check that ViewGento is enabled (or pass --force) and that the endpoint '
             . 'URL / API key are configured. See var/log/stacknuts_viewgento.log for details.</error>'
         );
         return Command::FAILURE;

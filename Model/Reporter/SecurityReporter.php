@@ -11,10 +11,11 @@ namespace StackNuts\ViewGento\Model\Reporter;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\MaintenanceMode;
 use Magento\Framework\Module\ModuleListInterface;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
-class SecurityReporter implements ReporterInterface
+class SecurityReporter implements ReporterInterface, DeclaresCadenceInterface
 {
     private const SCHEMA_VERSION = '2.0';
     private const DEFAULT_ADMIN_PATH = 'admin';
@@ -44,6 +45,11 @@ class SecurityReporter implements ReporterInterface
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
+    }
+
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
     }
 
     public function getStatus(): array

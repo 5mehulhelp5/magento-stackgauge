@@ -77,6 +77,40 @@ class FieldTest extends TestCase
         Field::number('Broken', INF);
     }
 
+    public function testTrackableNumberFieldSerializesMetricKeyAndAggregation(): void
+    {
+        $field = Field::trackableNumber('Free Percent', 47.9, 'disk.media.free_percent', 'latest');
+
+        $this->assertSame('number', $field->getType());
+        $this->assertSame(47.9, $field->getValue());
+        $this->assertSame('disk.media.free_percent', $field->getMetricKey());
+        $this->assertSame('latest', $field->getAggregation());
+        $this->assertSame(
+            [
+                'type' => 'number',
+                'label' => 'Free Percent',
+                'value' => 47.9,
+                'metric_key' => 'disk.media.free_percent',
+                'aggregation' => 'latest',
+            ],
+            $field->jsonSerialize()
+        );
+    }
+
+    public function testTrackableNumberFieldRejectsAnEmptyMetricKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Field::trackableNumber('Free Percent', 47.9, '', 'latest');
+    }
+
+    public function testTrackableNumberFieldRejectsNonFiniteFloats(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Field::trackableNumber('Broken', NAN, 'some.metric', 'latest');
+    }
+
     public function testArrayFieldAcceptsNestedFields(): void
     {
         $field = Field::array('Module', [

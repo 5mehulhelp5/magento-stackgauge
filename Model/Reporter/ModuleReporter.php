@@ -14,6 +14,7 @@ use Magento\Framework\Filesystem;
 use Magento\Framework\Module\FullModuleList;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Serialize\Serializer\Json;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 use Throwable;
@@ -30,7 +31,7 @@ use Throwable;
  * back to module.xml's setup_version only for modules that still declare one (mainly
  * custom/third-party modules, including this vendor's own).
  */
-class ModuleReporter implements ReporterInterface
+class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface
 {
     private const SCHEMA_VERSION = '2.1';
 
@@ -61,6 +62,11 @@ class ModuleReporter implements ReporterInterface
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
+    }
+
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
     }
 
     public function getStatus(): array

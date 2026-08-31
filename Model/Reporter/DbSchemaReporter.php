@@ -10,6 +10,7 @@ namespace StackNuts\ViewGento\Model\Reporter;
 
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Module\ModuleResource;
+use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
 use StackNuts\ViewGento\Api\Field\Field;
 use StackNuts\ViewGento\Api\ReporterInterface;
 
@@ -19,7 +20,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  * setup:upgrade never did" drift, invisible from the outside and easy to miss per-site
  * without an inventory like this.
  */
-class DbSchemaReporter implements ReporterInterface
+class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface
 {
     private const SCHEMA_VERSION = '2.0';
 
@@ -47,6 +48,11 @@ class DbSchemaReporter implements ReporterInterface
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
+    }
+
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
     }
 
     public function getStatus(): array
