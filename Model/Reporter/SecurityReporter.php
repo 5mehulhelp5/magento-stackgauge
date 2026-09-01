@@ -1,4 +1,61 @@
 <?php
+declare(strict_types=1);
+
+namespace StackNuts\ViewGento\Model\Reporter;
+
+use Magento\User\Model\ResourceModel\User\CollectionFactory as AdminUserCollectionFactory;
+use StackNuts\ViewGento\Api\Field\Field;
+use StackNuts\ViewGento\Api\ReporterInterface;
+
+final class SecurityReporter implements ReporterInterface
+{
+    private const SCHEMA_VERSION = '1.0';
+
+    public function __construct(private readonly AdminUserCollectionFactory $adminUserCollectionFactory)
+    {
+    }
+
+    public function getName(): string
+    {
+        return 'security';
+    }
+
+    public function getLabel(): string
+    {
+        return 'Security';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Basic admin user counts and default-admin checks.';
+    }
+
+    public function getSchemaVersion(): string
+    {
+        return self::SCHEMA_VERSION;
+    }
+
+    public function getStatus(): array
+    {
+        $collection = $this->adminUserCollectionFactory->create();
+        $total = $collection->getSize();
+
+        $defaultAdmin = 0;
+        try {
+            $defaultAdmin = $this->adminUserCollectionFactory->create()
+                ->addFieldToFilter('username', 'admin')
+                ->getSize();
+        } catch (\Throwable) {
+            $defaultAdmin = 0;
+        }
+
+        return ['security' => Field::array('Security', [
+            Field::number('admin_user_count', $total),
+            Field::bool('default_admin_present', $defaultAdmin > 0),
+        ])];
+    }
+}
+<?php
 /**
  * Copyright © StackNuts. All rights reserved.
  * See LICENSE for license details.

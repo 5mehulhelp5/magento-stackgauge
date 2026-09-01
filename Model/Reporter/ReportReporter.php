@@ -52,7 +52,7 @@ final class ReportReporter implements ReporterInterface
                 return ['reports' => Field::array('Reports', [])];
             }
 
-            $files = $varDir->read('report') ?? [];
+            $files = $varDir->read('report');
         } catch (\Throwable) {
             return ['reports' => Field::array('Reports', [])];
         }

@@ -49,6 +49,11 @@
                 <item name="logs" xsi:type="object">StackNuts\ViewGento\Model\Reporter\LogReporter</item>
                 <item name="order_stats" xsi:type="object">StackNuts\ViewGento\Model\Reporter\OrderStatsReporter</item>
                 <item name="reports" xsi:type="object">StackNuts\ViewGento\Model\Reporter\ReportReporter</item>
+                <item name="store_views" xsi:type="object">StackNuts\ViewGento\Model\Reporter\StoreViewsReporter</item>
+                <item name="themes" xsi:type="object">StackNuts\ViewGento\Model\Reporter\ThemeReporter</item>
+                <item name="payments" xsi:type="object">StackNuts\ViewGento\Model\Reporter\PaymentMethodsReporter</item>
+                <item name="php_extensions" xsi:type="object">StackNuts\ViewGento\Model\Reporter\PHPExtensionsReporter</item>
+                <item name="product_health" xsi:type="object">StackNuts\ViewGento\Model\Reporter\ProductHealthReporter</item>
                 <item name="catalog" xsi:type="object">StackNuts\ViewGento\Model\Reporter\CatalogReporter</item>
             </argument>
         </arguments>
