@@ -61,7 +61,7 @@ class CatalogReporter implements ReporterInterface, MetricCatalogInterface, Decl
     public function getStatus(): array
     {
         $enabledCount = $this->productCollectionFactory->create()
-            ->addAttributeToFilter('status', Status::STATUS_ENABLED)
+            ->addAttributeToFilter('status', ['eq' => Status::STATUS_ENABLED])
             ->getSize();
 
         return [

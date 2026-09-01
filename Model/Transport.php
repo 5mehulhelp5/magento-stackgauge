@@ -79,8 +79,10 @@ class Transport
             }
         }
 
-        $this->curl->setOption(CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT_SECONDS);
-        $this->curl->setOption(CURLOPT_TIMEOUT, self::TOTAL_TIMEOUT_SECONDS);
+        $this->curl->setOptions([
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT_SECONDS,
+            CURLOPT_TIMEOUT => self::TOTAL_TIMEOUT_SECONDS,
+        ]);
         $this->curl->setHeaders($headers);
 
         try {

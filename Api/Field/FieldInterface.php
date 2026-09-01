@@ -28,4 +28,13 @@ interface FieldInterface extends JsonSerializable
     public function getType(): string;
 
     public function getLabel(): string;
+
+    /**
+     * The underlying value of the field. Concrete field classes provide a typed
+     * return (string, bool, int|float, or array) but the interface declares mixed
+     * so callers can read values in tests and other local code.
+     *
+     * @return mixed
+     */
+    public function getValue();
 }

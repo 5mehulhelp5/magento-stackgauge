@@ -51,7 +51,7 @@ class IndexerReporter implements ReporterInterface
                 'title' => Field::varchar('Title', (string)$indexer->getTitle()),
                 'status' => Field::varchar('Status', (string)$indexer->getStatus()),
                 'mode' => Field::varchar('Mode', $indexer->isScheduled() ? 'schedule' : 'save'),
-                'updated_at' => Field::varchar('Updated At', (string)($indexer->getLatestUpdated() ?? '')),
+                'updated_at' => Field::varchar('Updated At', (string)$indexer->getLatestUpdated()),
             ]);
         }
 

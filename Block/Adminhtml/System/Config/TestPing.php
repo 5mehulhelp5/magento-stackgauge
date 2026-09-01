@@ -28,7 +28,15 @@ class TestPing extends Field
     public function render(AbstractElement $element)
     {
         $element = clone $element;
-        $element->unsScope()->unsCanUseWebsiteValue()->unsCanUseDefaultValue();
+        if (method_exists($element, 'unsScope')) {
+            $element->unsScope();
+        }
+        if (method_exists($element, 'unsCanUseWebsiteValue')) {
+            $element->unsCanUseWebsiteValue();
+        }
+        if (method_exists($element, 'unsCanUseDefaultValue')) {
+            $element->unsCanUseDefaultValue();
+        }
         return parent::render($element);
     }
 
