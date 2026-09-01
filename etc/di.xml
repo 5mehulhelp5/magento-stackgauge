@@ -46,6 +46,9 @@
                 <item name="disk" xsi:type="object">StackNuts\ViewGento\Model\Reporter\DiskSpaceReporter</item>
                 <item name="database" xsi:type="object">StackNuts\ViewGento\Model\Reporter\DatabaseReporter</item>
                 <item name="sales" xsi:type="object">StackNuts\ViewGento\Model\Reporter\SalesReporter</item>
+                <item name="logs" xsi:type="object">StackNuts\ViewGento\Model\Reporter\LogReporter</item>
+                <item name="order_stats" xsi:type="object">StackNuts\ViewGento\Model\Reporter\OrderStatsReporter</item>
+                <item name="reports" xsi:type="object">StackNuts\ViewGento\Model\Reporter\ReportReporter</item>
                 <item name="catalog" xsi:type="object">StackNuts\ViewGento\Model\Reporter\CatalogReporter</item>
             </argument>
         </arguments>
