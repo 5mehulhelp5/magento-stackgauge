@@ -67,10 +67,12 @@ successful test sends one real full report immediately.
 | `CacheReporter` | `cache` | Per-cache-type enabled/disabled status, plus which Full Page Cache type is active |
 | `SecurityReporter` | `security` | Whether the admin path is still the default, maintenance-mode flag, sample-data modules present |
 | `RedisReporter` | `redis` | Reachability + version of every Redis-backed cache frontend and the session backend, checked separately |
-| `SearchReporter` | `search` | Configured search engine + whether it's actually reachable (Elasticsearch/OpenSearch only - `reachable: null` on MySQL search, not `false`) |
+| `SearchReporter` | `search` | Configured search engine, a `pingable` flag (false for engines like MySQL search with nothing to ping), whether it's actually reachable, and the product index's document count once reachable (catches an empty/missing index, not just a down cluster) |
 | `RabbitMqReporter` | `rabbitmq` | Per-queue message/consumer count for every queue routed through the "amqp" connection, if RabbitMQ is configured at all |
 | `DiskSpaceReporter` | `disk` | Free/total bytes for var/log, var/cache, and media, checked independently since they're not guaranteed to share a mount |
 | `DatabaseReporter` | `database` | MySQL/MariaDB version and reachability |
+| `SalesReporter` | `sales` | Lifetime order count and lifetime count of quotes that ever had an item added, tracked as ever-increasing counters (see the class docblock for why "since midnight" was rejected) |
+| `CatalogReporter` | `catalog` | Enabled product count, checked daily rather than hourly since catalog size doesn't need tighter monitoring |
 
 `DiskSpaceReporter` reports `null` (not `0`) for a volume it can't measure - on this project's own dev environment, `var/cache` doesn't exist on disk at all (caching is entirely Redis-backed here), and `disk_free_space()` on a nonexistent path fails cleanly rather than lying with a fake number.
 
@@ -128,7 +130,7 @@ Full report (hourly by default, also triggered by the CLI and Test Ping):
     "core": { "schema_version": "1.0", "edition": "Community", "version": "2.4.7", "php_version": "8.3.1", "deployment_mode": "production", "static_content_deployed": true },
     "modules": { "schema_version": "1.0", "modules": [{ "name": "Magento_Catalog", "version": "103.0.5", "version_source": "composer_lock", "enabled": true }] },
     "redis": { "schema_version": "1.0", "backends": [{ "purpose": "cache_default", "reachable": true, "version": "7.2.4" }, { "purpose": "session", "reachable": true, "version": "7.2.4" }] },
-    "search": { "schema_version": "1.0", "engine": "opensearch", "reachable": true },
+    "search": { "schema_version": "2.1", "engine": "opensearch", "pingable": true, "reachable": true, "index_document_count": 4213 },
     "rabbitmq": { "schema_version": "1.0", "configured": true, "reachable": true, "queues": [{ "name": "async.operations.all", "exists": true, "messages": 0, "consumers": 1 }] }
   }
 }

@@ -14,6 +14,7 @@ use Magento\Framework\Controller\Result\Json;
 use Magento\Framework\Controller\Result\JsonFactory;
 use StackNuts\ViewGento\Model\Config;
 use StackNuts\ViewGento\Model\ReportSender;
+use StackNuts\ViewGento\Model\HeartbeatSender;
 use Throwable;
 
 /**
@@ -34,6 +35,7 @@ class TestPing extends Action implements HttpPostActionInterface
         private readonly JsonFactory $jsonFactory,
         private readonly Config $config,
         private readonly ReportSender $reportSender
+        , private readonly HeartbeatSender $heartbeatSender
     ) {
         parent::__construct($context);
     }
@@ -56,6 +58,14 @@ class TestPing extends Action implements HttpPostActionInterface
                 'success' => false,
                 'message' => __('Sending the test report threw an error: %1', $e->getMessage())->render(),
             ]);
+        }
+
+        // Send a heartbeat too (unconditionally) so the admin sees an immediate
+        // lightweight alive ping alongside the full report.
+        try {
+            $this->heartbeatSender->sendNow();
+        } catch (Throwable) {
+            // best-effort, don't block the report result on heartbeat
         }
 
         // Best-effort - a config-sync failure shouldn't mask a successful report test, and

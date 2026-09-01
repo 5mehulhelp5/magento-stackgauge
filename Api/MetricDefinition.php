@@ -29,6 +29,13 @@ final class MetricDefinition implements JsonSerializable
     public const AGGREGATION_MIN = 'min';
     public const AGGREGATION_MAX = 'max';
 
+    /**
+     * max(value) - min(value) over the window - "how much did this monotonically increasing
+     * counter grow" (e.g. lifetime order count), without needing a calendar-boundary concept
+     * like "since midnight". For a non-decreasing series this equals latest - earliest.
+     */
+    public const AGGREGATION_DELTA = 'delta';
+
     public const OPERATOR_LT = 'lt';
     public const OPERATOR_LTE = 'lte';
     public const OPERATOR_GT = 'gt';
@@ -41,6 +48,7 @@ final class MetricDefinition implements JsonSerializable
         self::AGGREGATION_LATEST,
         self::AGGREGATION_MIN,
         self::AGGREGATION_MAX,
+        self::AGGREGATION_DELTA,
     ];
 
     private const VALID_OPERATORS = [

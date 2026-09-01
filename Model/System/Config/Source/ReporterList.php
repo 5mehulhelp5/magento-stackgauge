@@ -38,6 +38,8 @@ class ReporterList implements OptionSourceInterface
         'rabbitmq',
         'disk',
         'database',
+        'sales',
+        'catalog',
     ];
 
     public function toOptionArray(): array
@@ -57,6 +59,8 @@ class ReporterList implements OptionSourceInterface
             ['value' => 'rabbitmq', 'label' => __('RabbitMQ (per-queue depth, if configured)')],
             ['value' => 'disk', 'label' => __('Disk space (var/log, var/cache, media)')],
             ['value' => 'database', 'label' => __('Database (MySQL/MariaDB version)')],
+            ['value' => 'sales', 'label' => __('Sales (lifetime order/quote counts)')],
+            ['value' => 'catalog', 'label' => __('Catalog (enabled product count)')],
         ];
     }
 }

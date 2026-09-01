@@ -34,6 +34,15 @@ class HeartbeatSender
             return false;
         }
 
+        return $this->sendNow();
+    }
+
+    /**
+     * Send a heartbeat unconditionally (ignores the "Enabled" toggle). Used
+     * by admin Test Ping so connectivity can be verified mid-setup.
+     */
+    public function sendNow(): bool
+    {
         $payload = [
             'type' => 'heartbeat',
             'schema_version' => self::SCHEMA_VERSION,

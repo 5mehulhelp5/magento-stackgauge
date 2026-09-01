@@ -45,6 +45,8 @@
                 <item name="rabbitmq" xsi:type="object">StackNuts\ViewGento\Model\Reporter\RabbitMqReporter</item>
                 <item name="disk" xsi:type="object">StackNuts\ViewGento\Model\Reporter\DiskSpaceReporter</item>
                 <item name="database" xsi:type="object">StackNuts\ViewGento\Model\Reporter\DatabaseReporter</item>
+                <item name="sales" xsi:type="object">StackNuts\ViewGento\Model\Reporter\SalesReporter</item>
+                <item name="catalog" xsi:type="object">StackNuts\ViewGento\Model\Reporter\CatalogReporter</item>
             </argument>
         </arguments>
     </type>

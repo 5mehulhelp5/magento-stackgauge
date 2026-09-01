@@ -31,7 +31,7 @@
         <stacknuts_viewgento>
             <general>
                 <enabled>0</enabled>
-                <reporters>core,modules,composer,db_schema,patches,indexers,cron,cache,security,redis,search,rabbitmq,disk,database</reporters>
+                <reporters>core,modules,composer,db_schema,patches,indexers,cron,cache,security,redis,search,rabbitmq,disk,database,sales,catalog</reporters>
             </general>
             <log>
                 <log_level>300</log_level>
