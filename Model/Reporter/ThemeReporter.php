@@ -1,16 +1,19 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\ScopeInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use Magento\Framework\App\ScopeInterface as AppScopeInterface;
+use Magento\Store\Model\ScopeInterface as StoreScopeInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 
-final class ThemeReporter implements ReporterInterface
+final class ThemeReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(private readonly ScopeConfigInterface $scopeConfig)
     {
@@ -36,20 +39,27 @@ final class ThemeReporter implements ReporterInterface
         return self::SCHEMA_VERSION;
     }
 
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
+    }
+
     public function getStatus(): array
     {
-        $frontend = (string)$this->scopeConfig->getValue('design/theme/theme_id', ScopeInterface::SCOPE_STORE);
-        $admin = (string)$this->scopeConfig->getValue('design/theme/theme_id', ScopeInterface::SCOPE_DEFAULT);
+        $frontend = (string)$this->scopeConfig->getValue('design/theme/theme_id', StoreScopeInterface::SCOPE_STORE);
+        $admin = (string)$this->scopeConfig->getValue('design/theme/theme_id', AppScopeInterface::SCOPE_DEFAULT);
 
         $themes = [
             Field::array('frontend', [
+                'name' => Field::varchar('Name', 'frontend'),
                 'theme_id' => Field::varchar('Theme ID', $frontend),
             ]),
             Field::array('adminhtml', [
+                'name' => Field::varchar('Name', 'adminhtml'),
                 'theme_id' => Field::varchar('Theme ID', $admin),
             ]),
         ];
 
-        return ['themes' => Field::array('Themes', $themes)];
+        return ['themes' => Section::table('themes', $this->getLabel(), $this->getDescription(), $themes)];
     }
 }

@@ -1,16 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\StoreManagerInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 
-final class StoreViewsReporter implements ReporterInterface
+final class StoreViewsReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(
         private readonly StoreManagerInterface $storeManager,
@@ -38,6 +40,11 @@ final class StoreViewsReporter implements ReporterInterface
         return self::SCHEMA_VERSION;
     }
 
+    public function getCadence(): string
+    {
+        return self::CADENCE_DAILY;
+    }
+
     public function getStatus(): array
     {
         $stores = [];
@@ -57,6 +64,6 @@ final class StoreViewsReporter implements ReporterInterface
             ]);
         }
 
-        return ['store_views' => Field::array('Store Views', $stores)];
+        return ['store_views' => Section::table('store_views', $this->getLabel(), $this->getDescription(), $stores, keyName: 'code')];
     }
 }

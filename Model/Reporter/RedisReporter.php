@@ -6,13 +6,14 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Credis_Client;
 use Magento\Framework\App\DeploymentConfig;
-use StackNuts\ViewGento\Api\Field\ArrayField;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\ArrayField;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -26,7 +27,7 @@ use Throwable;
  */
 class RedisReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
 
     /**
      * A slow/unreachable Redis must not stall the whole report - this is collection-time
@@ -77,7 +78,7 @@ class RedisReporter implements ReporterInterface
             $backends[] = $this->checkBackend('session', (array)($session['redis'] ?? []));
         }
 
-        return ['backends' => Field::array('Backends', $backends)];
+        return ['backends' => Section::table('backends', $this->getLabel(), $this->getDescription(), $backends)];
     }
 
     /**
@@ -108,8 +109,9 @@ class RedisReporter implements ReporterInterface
     private function backendField(string $purpose, bool $reachable, ?string $version): ArrayField
     {
         return Field::array($purpose, [
+            'name' => Field::varchar('Name', $purpose),
             'purpose' => Field::varchar('Purpose', $purpose),
-            'reachable' => Field::bool('Reachable', $reachable),
+            'reachable' => Field::bool('Reachable', $reachable, criticalWhen: false),
             'version' => Field::varchar('Version', $version ?? ''),
         ]);
     }

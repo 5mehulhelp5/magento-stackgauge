@@ -6,19 +6,20 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 
 /**
  * Summarizes recent var/report exception dumps (short message + class).
  */
 final class ReportReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     public function __construct(private readonly Filesystem $filesystem)
     {
@@ -49,12 +50,12 @@ final class ReportReporter implements ReporterInterface
         $varDir = $this->filesystem->getDirectoryRead(DirectoryList::VAR_DIR);
         try {
             if (! $varDir->isExist('report')) {
-                return ['reports' => Field::array('Reports', [])];
+                return ['reports' => Section::table('reports', $this->getLabel(), $this->getDescription(), [])];
             }
 
             $files = $varDir->read('report');
         } catch (\Throwable) {
-            return ['reports' => Field::array('Reports', [])];
+            return ['reports' => Section::table('reports', $this->getLabel(), $this->getDescription(), [])];
         }
 
         $recent = [];
@@ -72,6 +73,7 @@ final class ReportReporter implements ReporterInterface
 
             $message = $this->extractMessage($content);
             $recent[] = Field::array('', [
+                'name' => Field::varchar('Name', (string) $file),
                 'file' => Field::varchar('File', (string) $file),
                 'message' => Field::varchar('Message', $message),
             ]);
@@ -79,7 +81,7 @@ final class ReportReporter implements ReporterInterface
             $count++;
         }
 
-        return ['reports' => Field::array('Reports', $recent)];
+        return ['reports' => Section::table('reports', $this->getLabel(), $this->getDescription(), $recent)];
     }
 
     private function extractMessage(string $content): string

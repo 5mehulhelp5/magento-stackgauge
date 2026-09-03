@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model\Reporter;
+namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use PHPUnit\Framework\TestCase;
 use Magento\Payment\Model\Config as PaymentConfig;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use StackNuts\ViewGento\Model\Reporter\PaymentMethodsReporter;
+use StackNuts\StackGauge\Model\Reporter\PaymentMethodsReporter;
 
 class PaymentMethodsReporterTest extends TestCase
 {
@@ -29,5 +29,10 @@ class PaymentMethodsReporterTest extends TestCase
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('payments', $status);
+
+        $rows = $status['payments']->getRows();
+        $fields = $rows[0]->getValue();
+        $this->assertArrayNotHasKey('name', $fields);
+        $this->assertSame('Test Method', $fields['title']->getValue());
     }
 }

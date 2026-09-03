@@ -6,13 +6,13 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model\Reporter;
+namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use PHPUnit\Framework\TestCase;
-use StackNuts\ViewGento\Model\Reporter\ReportReporter;
+use StackNuts\StackGauge\Model\Reporter\ReportReporter;
 
 class ReportReporterTest extends TestCase
 {
@@ -27,6 +27,6 @@ class ReportReporterTest extends TestCase
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('reports', $status);
-        $this->assertSame([], $status['reports']->getValue());
+        $this->assertSame([], $status['reports']->getRows());
     }
 }

@@ -1,16 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Payment\Model\Config as PaymentConfig;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 
-final class PaymentMethodsReporter implements ReporterInterface
+final class PaymentMethodsReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '3.0';
 
     public function __construct(
         private readonly PaymentConfig $paymentConfig,
@@ -38,6 +40,11 @@ final class PaymentMethodsReporter implements ReporterInterface
         return self::SCHEMA_VERSION;
     }
 
+    public function getCadence(): string
+    {
+        return self::CADENCE_HOURLY;
+    }
+
     public function getStatus(): array
     {
         $methods = [];
@@ -57,6 +64,6 @@ final class PaymentMethodsReporter implements ReporterInterface
             ]);
         }
 
-        return ['payments' => Field::array('Payments', $methods)];
+        return ['payments' => Section::table('payments', $this->getLabel(), $this->getDescription(), $methods, keyName: 'code')];
     }
 }
