@@ -6,17 +6,18 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\AdvancedSearch\Model\Client\ClientResolver;
 use Magento\CatalogSearch\Model\Indexer\Fulltext;
 use Magento\Elasticsearch\SearchAdapter\SearchIndexNameResolver;
 use Magento\OpenSearch\Model\SearchClient;
 use Magento\Store\Model\StoreManagerInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\MetricCatalogInterface;
-use StackNuts\ViewGento\Api\MetricDefinition;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\MetricCatalogInterface;
+use StackNuts\StackGauge\Api\MetricDefinition;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -33,7 +34,7 @@ use Throwable;
  */
 class SearchReporter implements ReporterInterface, MetricCatalogInterface
 {
-    private const SCHEMA_VERSION = '2.1';
+    private const SCHEMA_VERSION = '3.0';
     private const METRIC_INDEX_DOCUMENT_COUNT = 'search.index_document_count';
 
     /**
@@ -87,8 +88,8 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface
 
         $fields = [
             'engine' => Field::varchar('Engine', $engine),
-            'pingable' => Field::bool('Pingable', $pingable),
-            'reachable' => Field::bool('Reachable', $reachable),
+            'pingable' => Field::bool('Pingable', $pingable, criticalWhen: false),
+            'reachable' => Field::bool('Reachable', $reachable, criticalWhen: false),
         ];
 
         // Only meaningful once we know the cluster actually answers - "reachable" already
@@ -106,7 +107,7 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface
             }
         }
 
-        return $fields;
+        return ['general' => Section::facts('general', 'General', $this->getDescription(), $fields)];
     }
 
     public function getTrackableMetrics(): array

@@ -6,11 +6,12 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\ResourceConnection;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -21,7 +22,7 @@ use Throwable;
  */
 class DatabaseReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
 
     public function __construct(
         private readonly ResourceConnection $resourceConnection
@@ -53,20 +54,20 @@ class DatabaseReporter implements ReporterInterface
         try {
             $versionString = (string)$this->resourceConnection->getConnection()->fetchOne('SELECT VERSION()');
 
-            return [
-                'reachable' => Field::bool('Reachable', true),
+            return ['general' => Section::facts('general', 'General', $this->getDescription(), [
+                'reachable' => Field::bool('Reachable', true, criticalWhen: false),
                 'version' => Field::varchar('Version', $versionString),
                 'distribution' => Field::varchar(
                     'Distribution',
                     stripos($versionString, 'mariadb') !== false ? 'mariadb' : 'mysql'
                 ),
-            ];
+            ])];
         } catch (Throwable) {
-            return [
-                'reachable' => Field::bool('Reachable', false),
+            return ['general' => Section::facts('general', 'General', $this->getDescription(), [
+                'reachable' => Field::bool('Reachable', false, criticalWhen: false),
                 'version' => Field::varchar('Version', ''),
                 'distribution' => Field::varchar('Distribution', ''),
-            ];
+            ])];
         }
     }
 }

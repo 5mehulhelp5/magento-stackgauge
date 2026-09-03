@@ -6,15 +6,16 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Catalog\Model\Product\Attribute\Source\Status;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\MetricCatalogInterface;
-use StackNuts\ViewGento\Api\MetricDefinition;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\MetricCatalogInterface;
+use StackNuts\StackGauge\Api\MetricDefinition;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 
 /**
  * Enabled product count - a simple "the catalog hasn't been wiped" signal, checked daily
@@ -25,7 +26,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  */
 class CatalogReporter implements ReporterInterface, MetricCatalogInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
     private const METRIC_PRODUCTS_ENABLED = 'catalog.products_enabled_count';
 
     public function __construct(
@@ -64,14 +65,14 @@ class CatalogReporter implements ReporterInterface, MetricCatalogInterface, Decl
             ->addAttributeToFilter('status', ['eq' => Status::STATUS_ENABLED])
             ->getSize();
 
-        return [
+        return ['general' => Section::facts('general', 'General', $this->getDescription(), [
             'products_enabled_count' => Field::trackableNumber(
                 'Products Enabled',
                 $enabledCount,
                 self::METRIC_PRODUCTS_ENABLED,
                 MetricDefinition::AGGREGATION_LATEST
             ),
-        ];
+        ])];
     }
 
     public function getTrackableMetrics(): array
