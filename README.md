@@ -1,9 +1,9 @@
-# StackNuts ViewGento
+# StackNuts StackGauge
 
-[![Latest Version](https://img.shields.io/packagist/v/stacknuts/magento-viewgento.svg)](https://packagist.org/packages/stacknuts/magento-viewgento) [![License](https://img.shields.io/packagist/l/stacknuts/magento-viewgento.svg)](https://github.com/StackNuts/magento-viewgento/blob/main/LICENSE) [![PHP Version](https://img.shields.io/packagist/php-v/stacknuts/magento-viewgento.svg)](https://packagist.org/packages/stacknuts/magento-viewgento)
+[![Latest Version](https://img.shields.io/packagist/v/stacknuts/magento-stackgauge.svg)](https://packagist.org/packages/stacknuts/magento-stackgauge) [![License](https://img.shields.io/packagist/l/stacknuts/magento-stackgauge.svg)](https://github.com/StackNuts/magento-stackgauge/blob/main/LICENSE) [![PHP Version](https://img.shields.io/packagist/php-v/stacknuts/magento-stackgauge.svg)](https://packagist.org/packages/stacknuts/magento-stackgauge)
 
 A lightweight, read-only agent that reports a Magento store's version, patch, and
-operational health data to a central ViewGento fleet dashboard - so an agency managing many
+operational health data to a central StackGauge fleet dashboard - so an agency managing many
 client sites can see everyone's update/security posture at a glance, instead of checking
 each store by hand.
 
@@ -28,14 +28,14 @@ what only the inside can see, on a schedule, to a dashboard your agency controls
 ## Installation
 
 ```bash
-composer require stacknuts/magento-viewgento
-bin/magento module:enable StackNuts_ViewGento
+composer require stacknuts/magento-stackgauge
+bin/magento module:enable StackNuts_StackGauge
 bin/magento setup:upgrade
 ```
 
 ## Configuration
 
-Go to **Stores > Configuration > Advanced > ViewGento**.
+Go to **Stores > Configuration > Advanced > StackGauge**.
 
 | Field | Notes |
 |---|---|
@@ -45,7 +45,7 @@ Go to **Stores > Configuration > Advanced > ViewGento**.
 | API Key | Bearer token issued by the dashboard for this site. Stored encrypted. |
 | HMAC Secret | Shared secret used to sign every report. Stored encrypted. |
 | Enabled Reporters | Which built-in reporters run. Third-party reporters (see below) aren't listed here and always run. |
-| Log Level | Minimum severity written to `var/log/stacknuts_viewgento.log`. |
+| Log Level | Minimum severity written to `var/log/stacknuts_stackgauge.log`. |
 
 These settings apply to the whole Magento instance (default scope only) - one installation
 reports as one site, not one report per store view.
@@ -148,20 +148,20 @@ Both post to the same configured endpoint URL, distinguished by `type`.
 
 - `POST` to the configured endpoint URL.
 - `Authorization: Bearer <api_key>`
-- `X-ViewGento-Signature`: hex HMAC-SHA256 of the raw JSON body, using the configured HMAC
+- `X-StackGauge-Signature`: hex HMAC-SHA256 of the raw JSON body, using the configured HMAC
   secret.
-- `X-ViewGento-Site-Id`: duplicates `site.identifier`, so the dashboard can route/validate
+- `X-StackGauge-Site-Id`: duplicates `site.identifier`, so the dashboard can route/validate
   before parsing JSON.
 - 5s connect / 10s total timeout - a slow or unreachable dashboard can never hang a site's
   cron.
 
 ## Cron
 
-Runs in its own `viewgento` cron group (independently schedulable/observable from Magento's
+Runs in its own `stackgauge` cron group (independently schedulable/observable from Magento's
 `default` group):
 
-- `stacknuts_viewgento_send_report` - full collection, hourly by default.
-- `stacknuts_viewgento_send_heartbeat` - lightweight ping, every 5 minutes by default.
+- `stacknuts_stackgauge_send_report` - full collection, hourly by default.
+- `stacknuts_stackgauge_send_heartbeat` - lightweight ping, every 5 minutes by default.
 
 Both cron jobs, and the maintenance-mode plugin, catch every exception internally - a
 dashboard outage or misconfiguration can never fail a cron run or block
@@ -169,7 +169,7 @@ dashboard outage or misconfiguration can never fail a cron run or block
 
 A single site-wide `bin/magento cron:run` (with no `--group`) - the standard single system
 crontab entry (`* * * * * bin/magento cron:run`) virtually every real Magento install
-already has - runs every registered cron group, including custom ones like `viewgento`.
+already has - runs every registered cron group, including custom ones like `stackgauge`.
 Confirmed by reading Magento's own `ProcessCronQueueObserver`: the group filter only
 *excludes* groups when `--group` is explicitly passed, so no group-specific crontab entry
 or `cron:install` re-run is needed for this module's jobs to actually fire.
@@ -193,16 +193,16 @@ each piece in isolation.
 ## CLI
 
 ```bash
-bin/magento viewgento:send --dry-run   # print the assembled payload, don't send
-bin/magento viewgento:send             # send now (skipped if "Enabled" is off)
-bin/magento viewgento:send --force     # send now regardless of "Enabled"
+bin/magento stackgauge:send --dry-run   # print the assembled payload, don't send
+bin/magento stackgauge:send             # send now (skipped if "Enabled" is off)
+bin/magento stackgauge:send --force     # send now regardless of "Enabled"
 ```
 
 ### Useful before a dashboard exists
 
-Every real send attempt (the hourly cron, `viewgento:send` without `--dry-run`, and Test
+Every real send attempt (the hourly cron, `stackgauge:send` without `--dry-run`, and Test
 Ping) logs the full payload at Info level before attempting delivery - not just on failure.
-Set **Log Level** to "Info" and turn **Enabled** on, and `var/log/stacknuts_viewgento.log`
+Set **Log Level** to "Info" and turn **Enabled** on, and `var/log/stacknuts_stackgauge.log`
 fills up with a complete, real snapshot every hour, greppable/`jq`-able, with or without an
 endpoint URL configured yet. That makes the hourly cron a useful local fleet-history log in
 its own right from day one, not just a debugging aid once a dashboard exists to send to.
@@ -210,57 +210,59 @@ its own right from day one, not just a debugging aid once a dashboard exists to 
 ## Pluggable reporters
 
 Third-party modules can contribute their own named block to the payload without this module
-knowing about them in advance. Implement `StackNuts\ViewGento\Api\ReporterInterface`:
+knowing about them in advance. Implement `StackNuts\StackGauge\Api\ReporterInterface`:
 
 ```php
-namespace StackNuts\ViewGento\Api;
+namespace StackNuts\StackGauge\Api;
 
 interface ReporterInterface
 {
     public function getName(): string;          // payload key, must be unique, e.g. "cloudflare"
-    public function getSchemaVersion(): string;  // your own schema version, opaque to ViewGento
-    public function getStatus(): array;          // the block's contents
+    public function getSchemaVersion(): string;  // your own schema version, opaque to StackGauge
+    public function getStatus(): array;          // array<string, Section\SectionInterface> - see below
 }
 ```
 
 Register it against the shared `reporters` array on `ReporterPool` from your own `di.xml` -
 Magento merges array-type arguments across every module's `di.xml`, so nothing in
-StackNuts_ViewGento needs to change. This is a real, live example, not a hypothetical one -
-[`stacknuts/magento-cloudflare-cache-viewgento`](https://github.com/StackNuts/magento-cloudflare-cache-viewgento)
-implements it in `Model/ViewGentoReporter.php` and registers it in its own `etc/di.xml`:
+StackNuts_StackGauge needs to change. This is a real, live example, not a hypothetical one -
+[`stacknuts/magento-cloudflare-cache-stackgauge`](https://github.com/StackNuts/magento-cloudflare-cache-stackgauge)
+implements it in `Model/StackGaugeReporter.php` and registers it in its own `etc/di.xml`:
 
 ```xml
-<type name="StackNuts\ViewGento\Model\ReporterPool">
+<type name="StackNuts\StackGauge\Model\ReporterPool">
     <arguments>
         <argument name="reporters" xsi:type="array">
-            <item name="cloudflare" xsi:type="object">StackNuts\CloudflareCacheViewGento\Model\ViewGentoReporter</item>
+            <item name="cloudflare" xsi:type="object">StackNuts\CloudflareCacheStackGauge\Model\StackGaugeReporter</item>
         </argument>
     </arguments>
 </type>
 ```
 
 ```php
-class ViewGentoReporter implements \StackNuts\ViewGento\Api\ReporterInterface
+class StackGaugeReporter implements \StackNuts\StackGauge\Api\ReporterInterface
 {
     public function getName(): string { return 'cloudflare'; }
-    public function getSchemaVersion(): string { return '1.0'; }
+    public function getSchemaVersion(): string { return '3.0'; }
     public function getStatus(): array
     {
         return [
-            'enabled' => $this->config->isActive(),
-            'purge_queue_backlog' => $this->purgeQueue->getPendingCount(),
+            'general' => Section::facts('general', 'General', $this->getDescription(), [
+                'enabled' => Field::bool('Enabled', $this->config->isActive()),
+                'purge_queue_backlog' => Field::number('Purge Queue Backlog', $this->purgeQueue->getPendingCount()),
+            ]),
         ];
     }
 }
 ```
 
-Deliberately restricted to a bool and an int for this first cross-module reporter, rather
+Deliberately restricted to a bool and a number for this first cross-module reporter, rather
 than richer detail (e.g. a last-purge timestamp) - the simplest useful shape, in keeping with
-the "JSON-safe scalars, keep it small" rule below.
+the "keep it small" rule below.
 
 **Compatibility module, not a direct dependency**: this integration doesn't live in
 `StackNuts_CloudflareCache` itself, and `StackNuts_CloudflareCache` has no dependency on
-ViewGento at all - it lives in its own small `stacknuts/magento-cloudflare-cache-viewgento`
+StackGauge at all - it lives in its own small `stacknuts/magento-cloudflare-cache-stackgauge`
 module that requires both. This is the same pattern Magento core uses for optional
 cross-module features (e.g. `Magento_CatalogInventoryGraphQl`, `Magento_PaypalGraphQl`): a
 module named after the pair it bridges, containing only glue code. Install it, and both are
@@ -272,14 +274,24 @@ dedicated compatibility module, not a direct edit to either existing one.
 
 **Shape rules for `getStatus()`:**
 
-- Plain array of JSON-safe values only (strings, ints, floats, bools, null, and nested
-  arrays of those) - no objects, resources, or closures.
-- Don't use the key `schema_version` - `ReporterPool` injects that itself alongside your
-  data, so it's reserved.
-- Prefer ISO-8601 strings for timestamps.
-- Nothing to report yet? Return a small neutral array (e.g. `['status' => 'idle']`) rather
-  than throwing - a thrown exception is treated as a genuine failure: it's caught, logged,
-  and your block becomes `{"error": "..."}` for that cycle instead of your real data.
+- Return `array<string, SectionInterface>` - every value built via
+  `StackNuts\StackGauge\Api\Section\Section::facts()` or `::table()`, each field inside a
+  section built via `StackNuts\StackGauge\Api\Field\Field::bool()`/`varchar()`/`number()`/
+  `datetime()`/`trackableNumber()`. No raw scalars, objects, resources, or closures - each
+  Section/Field type validates and cleans its own value at construction time.
+- `Section::facts($key, $label, $description, $fields)` for a flat key -> scalar fact list
+  (no array-shaped fields allowed - split those into their own table section instead).
+  `Section::table($key, $label, $description, $rows)` for a homogeneous list of records, each
+  row built with `Field::array($rowLabel, ['col' => Field::...])` - every row must share the
+  same set of column keys.
+- Don't use the keys `schema_version`, `label`, or `description` in the array returned by
+  `getStatus()` - `ReporterPool` injects those itself, so they're reserved.
+- A field's own key must stay unique across your reporter's sections - the dashboard's
+  trackable `metric_key` convention (`"<reporter_name>.<field_key>"`) only sees the field
+  key, not which section it lives in.
+- Nothing to report yet? Return a section with an empty `fields`/`rows` array rather than
+  throwing - a thrown exception is treated as a genuine failure: it's caught, logged, and your
+  block becomes `{"error": "..."}` for that cycle instead of your real data.
 - Keep it small. This rides an hourly/5-minute report, not a bulk export - no raw file
   contents, no PII, no binary blobs.
 
@@ -291,8 +303,8 @@ empty array when off.
 ## Uninstall
 
 ```bash
-bin/magento module:disable StackNuts_ViewGento
-composer remove stacknuts/magento-viewgento
+bin/magento module:disable StackNuts_StackGauge
+composer remove stacknuts/magento-stackgauge
 bin/magento setup:upgrade
 ```
 
