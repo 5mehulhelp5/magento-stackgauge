@@ -6,12 +6,12 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model;
+namespace StackNuts\StackGauge\Model;
 
 use DateTimeImmutable;
 use Magento\Framework\Module\ModuleListInterface;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\MetricDefinition;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\MetricDefinition;
 
 /**
  * Assembles the full-collection envelope sent by Cron\SendReport/SendDailyReport, the CLI
@@ -24,11 +24,14 @@ use StackNuts\ViewGento\Api\MetricDefinition;
 class PayloadBuilder
 {
     /**
-     * Bumped to 2.0 when every reporter's "fields" moved from raw scalars to typed Field
-     * values (see Api\Field) - a genuine envelope-shape break, not just a data change.
+     * Bumped to 3.0 when every reporter's flat "fields" map was replaced by an explicit,
+     * ordered "sections" list (see Api\Section) - each section constrained to one canonical
+     * shape (a flat fact list or a homogeneous table), rather than the dashboard sniffing an
+     * arbitrarily nested field's shape at render time. A genuine envelope-shape break, not
+     * just a data change - see 2.0's own history above for the same kind of break.
      */
-    private const SCHEMA_VERSION = '2.0';
-    private const MODULE_NAME = 'StackNuts_ViewGento';
+    private const SCHEMA_VERSION = '3.0';
+    private const MODULE_NAME = 'StackNuts_StackGauge';
 
     public function __construct(
         private readonly ReporterPool $reporterPool,

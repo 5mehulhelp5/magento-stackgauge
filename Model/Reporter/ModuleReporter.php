@@ -6,7 +6,7 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Component\ComponentRegistrar;
@@ -14,9 +14,10 @@ use Magento\Framework\Filesystem;
 use Magento\Framework\Module\FullModuleList;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Serialize\Serializer\Json;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -33,7 +34,7 @@ use Throwable;
  */
 class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '2.1';
+    private const SCHEMA_VERSION = '3.0';
 
     public function __construct(
         private readonly FullModuleList $fullModuleList,
@@ -91,7 +92,7 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface
             ]);
         }
 
-        return ['modules' => Field::array('Modules', $modules)];
+        return ['modules' => Section::table('modules', $this->getLabel(), $this->getDescription(), $modules)];
     }
 
     /**

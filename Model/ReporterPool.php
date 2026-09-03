@@ -6,24 +6,26 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model;
+namespace StackNuts\StackGauge\Model;
 
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\FieldInterface;
-use StackNuts\ViewGento\Api\ReporterInterface;
-use StackNuts\ViewGento\Model\System\Config\Source\ReporterList;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\SectionInterface;
+use StackNuts\StackGauge\Model\System\Config\Source\ReporterList;
 use Throwable;
 
 /**
  * Runs every registered reporter (built-in and third-party, collected via the "reporters"
  * di.xml array argument) and assembles the "reporters" block of the payload. A reporter
- * that throws - including one that returns something other than a Field for any key, which
- * this class checks explicitly since PHP can't express "array<string, FieldInterface>" as
- * an enforceable native return type - never blocks the others or aborts the send; its block
- * becomes {"error": "..."} instead, so a broken third-party integration degrades gracefully
- * rather than silently dropping the whole report.
+ * that throws - including one that returns something other than a Section for any key,
+ * which this class checks explicitly since PHP can't express "array<string, SectionInterface>"
+ * as an enforceable native return type - never blocks the others or aborts the send; its
+ * block becomes {"error": "..."} instead, so a broken third-party integration degrades
+ * gracefully rather than silently dropping the whole report. Shape validation itself (is
+ * this section flat? do every table row's columns match?) lives on FactsSection/TableSection
+ * now, at construction time - this class no longer guesses at a reporter's intended shape.
  */
 class ReporterPool
 {
@@ -78,7 +80,7 @@ class ReporterPool
 
             if (isset($result[$name])) {
                 $this->logger->warning(sprintf(
-                    'ViewGento: duplicate reporter name "%s" registered - the later one overwrites the earlier block.',
+                    'StackGauge: duplicate reporter name "%s" registered - the later one overwrites the earlier block.',
                     $name
                 ));
             }
@@ -95,14 +97,14 @@ class ReporterPool
     private function collectOne(ReporterInterface $reporter): array
     {
         try {
-            $fields = $reporter->getStatus();
+            $sections = $reporter->getStatus();
 
-            foreach ($fields as $key => $field) {
-                if (!$field instanceof FieldInterface) {
+            foreach ($sections as $key => $section) {
+                if (!$section instanceof SectionInterface) {
                     throw new InvalidArgumentException(sprintf(
-                        'field "%s" must be a StackNuts\ViewGento\Api\Field\FieldInterface instance, got %s',
+                        'section "%s" must be a StackNuts\StackGauge\Api\Section\SectionInterface instance, got %s',
                         $key,
-                        get_debug_type($field)
+                        get_debug_type($section)
                     ));
                 }
             }
@@ -111,11 +113,13 @@ class ReporterPool
                 'schema_version' => $reporter->getSchemaVersion(),
                 'label' => $reporter->getLabel(),
                 'description' => $reporter->getDescription(),
-                'fields' => $fields,
+                // An ordered list, not a map - display order matters, and each section already
+                // carries its own key (see SectionInterface::getKey()).
+                'sections' => array_values($sections),
             ];
         } catch (Throwable $e) {
             $this->logger->warning(sprintf(
-                'ViewGento: reporter "%s" failed: %s',
+                'StackGauge: reporter "%s" failed: %s',
                 $reporter->getName(),
                 $e->getMessage()
             ), ['exception' => $e]);

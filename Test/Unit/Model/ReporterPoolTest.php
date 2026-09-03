@@ -6,16 +6,18 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model;
+namespace StackNuts\StackGauge\Test\Unit\Model;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
-use StackNuts\ViewGento\Model\Config;
-use StackNuts\ViewGento\Model\ReporterPool;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\FactsSection;
+use StackNuts\StackGauge\Api\Section\Section;
+use StackNuts\StackGauge\Model\Config;
+use StackNuts\StackGauge\Model\ReporterPool;
 
 class ReporterPoolTest extends TestCase
 {
@@ -139,21 +141,31 @@ class ReporterPoolTest extends TestCase
     }
 
     /**
-     * A badly-behaved reporter returning a raw scalar instead of a Field - exactly the
+     * @param array<string, \StackNuts\StackGauge\Api\Field\FieldInterface> $fields
+     */
+    private function factsSection(array $fields): FactsSection
+    {
+        return Section::facts('general', 'General', '', $fields);
+    }
+
+    /**
+     * A badly-behaved reporter returning a raw scalar instead of a Section - exactly the
      * mistake ReporterPool's validation exists to catch.
      */
     private function malformedReporter(string $name): ReporterInterface
     {
-        return $this->fakeReporter($name, '1.0', ['edition' => 'Community']);
+        return $this->fakeReporter($name, '1.0', ['general' => 'Community']);
     }
 
-    public function testWrapsFieldsUnderTheReporterEnvelope(): void
+    public function testWrapsSectionsUnderTheReporterEnvelope(): void
     {
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
 
+        $section = $this->factsSection(['edition' => Field::varchar('Edition', 'Community')]);
+
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '2.0', ['edition' => Field::varchar('Edition', 'Community')])],
+            [$this->fakeReporter('core', '2.0', ['general' => $section])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -164,7 +176,7 @@ class ReporterPoolTest extends TestCase
                     'schema_version' => '2.0',
                     'label' => 'Core',
                     'description' => 'A fake reporter for tests.',
-                    'fields' => ['edition' => Field::varchar('Edition', 'Community')],
+                    'sections' => [$section],
                 ],
             ],
             $pool->collect()
@@ -177,7 +189,7 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn(['modules']); // "core" not enabled
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '1.0', ['edition' => Field::varchar('Edition', 'Community')])],
+            [$this->fakeReporter('core', '1.0', ['general' => $this->factsSection(['edition' => Field::varchar('Edition', 'Community')])])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -190,8 +202,10 @@ class ReporterPoolTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn([]); // nothing built-in enabled
 
+        $section = $this->factsSection(['purge_queue_backlog' => Field::number('Backlog', 0)]);
+
         $pool = new ReporterPool(
-            [$this->fakeReporter('cloudflare', '1.0', ['purge_queue_backlog' => Field::number('Backlog', 0)])],
+            [$this->fakeReporter('cloudflare', '1.0', ['general' => $section])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -199,7 +213,7 @@ class ReporterPoolTest extends TestCase
         $result = $pool->collect();
         $this->assertArrayHasKey('cloudflare', $result);
         $this->assertSame('1.0', $result['cloudflare']['schema_version']);
-        $this->assertEquals(['purge_queue_backlog' => Field::number('Backlog', 0)], $result['cloudflare']['fields']);
+        $this->assertEquals([$section], $result['cloudflare']['sections']);
     }
 
     public function testAFailingReporterProducesAnErrorBlockWithoutBlockingOthers(): void
@@ -213,7 +227,7 @@ class ReporterPoolTest extends TestCase
         $pool = new ReporterPool(
             [
                 $this->throwingReporter('core', 'boom'),
-                $this->fakeReporter('cron', '1.0', ['alive' => Field::bool('Alive', true)]),
+                $this->fakeReporter('cron', '1.0', ['general' => $this->factsSection(['alive' => Field::bool('Alive', true)])]),
             ],
             $config,
             $logger
@@ -224,7 +238,7 @@ class ReporterPoolTest extends TestCase
         $this->assertSame('1.0', $result['cron']['schema_version']);
     }
 
-    public function testAReporterReturningARawScalarInsteadOfAFieldProducesAnErrorBlock(): void
+    public function testAReporterReturningARawScalarInsteadOfASectionProducesAnErrorBlock(): void
     {
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
@@ -236,7 +250,7 @@ class ReporterPoolTest extends TestCase
 
         $result = $pool->collect();
         $this->assertArrayHasKey('error', $result['core']);
-        $this->assertStringContainsString('FieldInterface', $result['core']['error']);
+        $this->assertStringContainsString('SectionInterface', $result['core']['error']);
     }
 
     public function testAReporterWithNoCadenceDeclarationIsAlwaysTreatedAsHourly(): void
@@ -245,7 +259,7 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '1.0', ['edition' => Field::varchar('Edition', 'Community')])],
+            [$this->fakeReporter('core', '1.0', ['general' => $this->factsSection(['edition' => Field::varchar('Edition', 'Community')])])],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -264,7 +278,7 @@ class ReporterPoolTest extends TestCase
                 $this->fakeReporterWithCadence(
                     'modules',
                     DeclaresCadenceInterface::CADENCE_DAILY,
-                    ['count' => Field::number('Count', 42)]
+                    ['general' => $this->factsSection(['count' => Field::number('Count', 42)])]
                 ),
             ],
             $config,

@@ -6,28 +6,32 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Api;
+namespace StackNuts\StackGauge\Api;
 
-use StackNuts\ViewGento\Api\Field\FieldInterface;
+use StackNuts\StackGauge\Api\Section\SectionInterface;
 
 /**
- * Extension point for third-party modules to contribute a named block to the ViewGento
+ * Extension point for third-party modules to contribute a named block to the StackGauge
  * status payload without this module needing to know about the integration in advance.
  * Implement this in your own module and register it against the "reporters" array argument
- * on \StackNuts\ViewGento\Model\ReporterPool via your own di.xml - Magento merges array
- * arguments across modules, so no change to StackNuts_ViewGento is needed.
+ * on \StackNuts\StackGauge\Model\ReporterPool via your own di.xml - Magento merges array
+ * arguments across modules, so no change to StackNuts_StackGauge is needed.
  *
- * getStatus() must return every value wrapped in a typed Field (see Api\Field\Field) -
- * Field::bool(), Field::varchar(), Field::number(), or Field::array() of more Fields. This
- * isn't just a style preference: a dashboard consumer can render any field correctly
- * without knowing this reporter's shape in advance, because the field itself says what it
- * is; each Field type validates and/or cleans its own value at construction time (length
- * caps, tag-stripping, finite-number checks, nesting-depth limits - see each class); and it
- * gives every reporter, built-in or third-party, the same shape discipline rather than
- * relying on a docblock nobody enforces. A reporter that returns anything other than a
- * Field (or throws while building one) has its whole block replaced with an
- * {"error": ...} marker by ReporterPool - exactly like a reporter that throws for any other
- * reason - so a bad reporter degrades gracefully rather than corrupting the payload.
+ * getStatus() must return every value wrapped in a typed Section (see Api\Section\Section) -
+ * Section::facts() for a flat key/value fact list, or Section::table() for a homogeneous
+ * list of records. This isn't just a style preference: a dashboard consumer can render any
+ * section correctly without knowing this reporter's shape in advance, because each section
+ * declares its own kind and (for a table) its own columns; every Section type validates its
+ * shape at construction time (see Api\Section\FactsSection/TableSection); and it gives every
+ * reporter, built-in or third-party, the same shape discipline rather than relying on a
+ * docblock nobody enforces. A reporter that returns anything other than a Section (or throws
+ * while building one) has its whole block replaced with an {"error": ...} marker by
+ * ReporterPool - exactly like a reporter that throws for any other reason - so a bad
+ * reporter degrades gracefully rather than corrupting the payload.
+ *
+ * A reporter's field keys must stay unique across its own sections - the dashboard's
+ * trackable-metric_key convention ("<reporter_name>.<field_key>") only sees the field key,
+ * not which section it lives in.
  *
  * Do not use the keys "schema_version", "label", or "description" in the array returned by
  * getStatus() - ReporterPool wraps the array under those reserved keys itself.
@@ -53,7 +57,7 @@ interface ReporterInterface
     public function getDescription(): string;
 
     /**
-     * This reporter's own schema version, opaque to ViewGento - only the dashboard
+     * This reporter's own schema version, opaque to StackGauge - only the dashboard
      * interprets it. Lets a third-party reporter evolve its own shape independently of the
      * core module's payload schema_version. Bump this whenever a field's name, type, or
      * meaning changes - self-describing Fields mean the dashboard's generic rendering
@@ -63,7 +67,7 @@ interface ReporterInterface
     public function getSchemaVersion(): string;
 
     /**
-     * @return array<string, FieldInterface>
+     * @return array<string, SectionInterface>
      */
     public function getStatus(): array;
 }

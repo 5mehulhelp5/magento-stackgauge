@@ -6,16 +6,16 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model;
+namespace StackNuts\StackGauge\Test\Unit\Model;
 
 use Magento\Framework\Module\ModuleListInterface;
 use PHPUnit\Framework\TestCase;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\MetricDefinition;
-use StackNuts\ViewGento\Model\Config;
-use StackNuts\ViewGento\Model\MetricCatalogPool;
-use StackNuts\ViewGento\Model\PayloadBuilder;
-use StackNuts\ViewGento\Model\ReporterPool;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\MetricDefinition;
+use StackNuts\StackGauge\Model\Config;
+use StackNuts\StackGauge\Model\MetricCatalogPool;
+use StackNuts\StackGauge\Model\PayloadBuilder;
+use StackNuts\StackGauge\Model\ReporterPool;
 
 class PayloadBuilderTest extends TestCase
 {
@@ -50,7 +50,7 @@ class PayloadBuilderTest extends TestCase
 
         $this->assertSame('full', $payload['type']);
         $this->assertSame(DeclaresCadenceInterface::CADENCE_HOURLY, $payload['cadence']);
-        $this->assertSame('2.0', $payload['schema_version']);
+        $this->assertSame('3.0', $payload['schema_version']);
         $this->assertSame('1.0.0', $payload['module_version']);
         $this->assertSame(['identifier' => 'site-123'], $payload['site']);
         $this->assertSame(['core' => ['schema_version' => '1.0', 'edition' => 'Community']], $payload['reporters']);
