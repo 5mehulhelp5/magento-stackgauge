@@ -6,15 +6,16 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
-use StackNuts\ViewGento\Api\Field\ArrayField;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\MetricCatalogInterface;
-use StackNuts\ViewGento\Api\MetricDefinition;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\ArrayField;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\MetricCatalogInterface;
+use StackNuts\StackGauge\Api\MetricDefinition;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -32,7 +33,7 @@ use Throwable;
  */
 class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
     private const METRIC_MEDIA_FREE_PERCENT = 'disk.media.free_percent';
 
     /**
@@ -77,7 +78,7 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface
             $volumes[] = $this->checkVolume($purpose, $directoryCode);
         }
 
-        return ['volumes' => Field::array('Volumes', $volumes)];
+        return ['volumes' => Section::table('volumes', $this->getLabel(), $this->getDescription(), $volumes)];
     }
 
     public function getTrackableMetrics(): array
@@ -128,6 +129,7 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface
             : Field::number('Free Percent', $freePercent);
 
         return Field::array($purpose, [
+            'name' => Field::varchar('Name', $purpose),
             'purpose' => Field::varchar('Purpose', $purpose),
             'measurable' => Field::bool('Measurable', $measurable),
             'free_bytes' => Field::number('Free Bytes', $freeBytes),

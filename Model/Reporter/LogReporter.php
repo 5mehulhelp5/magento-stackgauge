@@ -6,12 +6,13 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 
 /**
  * Simple log delta reporter: counts new lines in common log files and extracts
@@ -19,7 +20,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  */
 final class LogReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '2.0';
 
     private const SYSTEM_LOG = 'system.log';
     private const EXCEPTION_LOG = 'exception.log';
@@ -58,8 +59,18 @@ final class LogReporter implements ReporterInterface
         $recentExceptions = $this->extractExceptionMessages($exceptionChunk);
 
         return [
-            'system_new_lines' => Field::number('System new lines', $systemLines),
-            'recent_exceptions' => Field::array('Recent exceptions', array_map(fn($m) => Field::varchar('', $m), $recentExceptions)),
+            'general' => Section::facts('general', 'General', '', [
+                'system_new_lines' => Field::number('System new lines', $systemLines),
+            ]),
+            // No keyName override: identical exception messages recurring in the log window
+            // are common and not a reporter bug, so this deliberately skips the
+            // duplicate-row check (which needs every row to share the missing "name" column).
+            'recent_exceptions' => Section::table('recent_exceptions', 'Recent exceptions', '', array_map(
+                fn($m) => Field::array($m, [
+                    'message' => Field::varchar('Message', $m),
+                ]),
+                $recentExceptions
+            )),
         ];
     }
 

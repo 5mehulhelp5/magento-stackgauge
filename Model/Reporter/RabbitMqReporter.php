@@ -6,14 +6,15 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\Amqp\Config as AmqpConfig;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\MessageQueue\Topology\ConfigInterface as TopologyConfigInterface;
-use StackNuts\ViewGento\Api\Field\ArrayField;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Field\ArrayField;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -29,7 +30,7 @@ use Throwable;
  */
 class RabbitMqReporter implements ReporterInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
     private const AMQP_CONNECTION = 'amqp';
 
     public function __construct(
@@ -62,7 +63,7 @@ class RabbitMqReporter implements ReporterInterface
     public function getStatus(): array
     {
         if (!$this->deploymentConfig->get('queue/amqp/host')) {
-            return ['configured' => Field::bool('Configured', false)];
+            return $this->result(false, null, []);
         }
 
         try {
@@ -70,11 +71,7 @@ class RabbitMqReporter implements ReporterInterface
             // queue - a channel is required either way, so this isn't extra round trips.
             $this->amqpConfig->getChannel();
         } catch (Throwable) {
-            return [
-                'configured' => Field::bool('Configured', true),
-                'reachable' => Field::bool('Reachable', false),
-                'queues' => Field::array('Queues', []),
-            ];
+            return $this->result(true, false, []);
         }
 
         $queues = [];
@@ -86,10 +83,23 @@ class RabbitMqReporter implements ReporterInterface
             $queues[] = $this->checkQueue($queueConfigItem->getName());
         }
 
+        return $this->result(true, true, $queues);
+    }
+
+    /**
+     * @param list<ArrayField> $queues
+     * @return array<string, \StackNuts\StackGauge\Api\Section\SectionInterface>
+     */
+    private function result(bool $configured, ?bool $reachable, array $queues): array
+    {
+        $generalFields = ['configured' => Field::bool('Configured', $configured)];
+        if ($reachable !== null) {
+            $generalFields['reachable'] = Field::bool('Reachable', $reachable, criticalWhen: false);
+        }
+
         return [
-            'configured' => Field::bool('Configured', true),
-            'reachable' => Field::bool('Reachable', true),
-            'queues' => Field::array('Queues', $queues),
+            'general' => Section::facts('general', 'General', $this->getDescription(), $generalFields),
+            'queues' => Section::table('queues', 'Queues', 'Per-queue message/consumer count.', $queues),
         ];
     }
 
@@ -113,6 +123,8 @@ class RabbitMqReporter implements ReporterInterface
     {
         return Field::array($name, [
             'name' => Field::varchar('Name', $name),
+            // Not criticalWhen:false - NOT_FOUND is a normal outcome for a queue that's
+            // never had a consumer run yet (see checkQueue()), not a health signal.
             'exists' => Field::bool('Exists', $exists),
             'messages' => Field::number('Messages', $messages),
             'consumers' => Field::number('Consumers', $consumers),

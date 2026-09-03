@@ -1,61 +1,4 @@
 <?php
-declare(strict_types=1);
-
-namespace StackNuts\ViewGento\Model\Reporter;
-
-use Magento\User\Model\ResourceModel\User\CollectionFactory as AdminUserCollectionFactory;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
-
-final class SecurityReporter implements ReporterInterface
-{
-    private const SCHEMA_VERSION = '1.0';
-
-    public function __construct(private readonly AdminUserCollectionFactory $adminUserCollectionFactory)
-    {
-    }
-
-    public function getName(): string
-    {
-        return 'security';
-    }
-
-    public function getLabel(): string
-    {
-        return 'Security';
-    }
-
-    public function getDescription(): string
-    {
-        return 'Basic admin user counts and default-admin checks.';
-    }
-
-    public function getSchemaVersion(): string
-    {
-        return self::SCHEMA_VERSION;
-    }
-
-    public function getStatus(): array
-    {
-        $collection = $this->adminUserCollectionFactory->create();
-        $total = $collection->getSize();
-
-        $defaultAdmin = 0;
-        try {
-            $defaultAdmin = $this->adminUserCollectionFactory->create()
-                ->addFieldToFilter('username', 'admin')
-                ->getSize();
-        } catch (\Throwable) {
-            $defaultAdmin = 0;
-        }
-
-        return ['security' => Field::array('Security', [
-            Field::number('admin_user_count', $total),
-            Field::bool('default_admin_present', $defaultAdmin > 0),
-        ])];
-    }
-}
-<?php
 /**
  * Copyright © StackNuts. All rights reserved.
  * See LICENSE for license details.
@@ -63,18 +6,19 @@ final class SecurityReporter implements ReporterInterface
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\MaintenanceMode;
 use Magento\Framework\Module\ModuleListInterface;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 
 class SecurityReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
     private const DEFAULT_ADMIN_PATH = 'admin';
 
     public function __construct(
@@ -117,19 +61,24 @@ class SecurityReporter implements ReporterInterface, DeclaresCadenceInterface
         ));
 
         return [
-            // Deliberately a boolean, not the actual admin path string - sending every
-            // client's real (deliberately obscured) admin URL to a third-party dashboard
-            // would concentrate exactly the secret that obscurity is meant to protect.
-            'is_default_admin_path' => Field::bool(
-                'Is Default Admin Path',
-                $this->getAdminFrontName() === self::DEFAULT_ADMIN_PATH
-            ),
-            'maintenance_mode' => Field::bool('Maintenance Mode', $this->maintenanceMode->isOn()),
-            'sample_data_present' => Field::bool('Sample Data Present', $sampleDataModules !== []),
-            'sample_data_modules' => Field::array('Sample Data Modules', array_map(
-                static fn (string $name) => Field::varchar($name, $name),
+            'general' => Section::facts('general', 'General', $this->getDescription(), [
+                // Deliberately a boolean, not the actual admin path string - sending every
+                // client's real (deliberately obscured) admin URL to a third-party dashboard
+                // would concentrate exactly the secret that obscurity is meant to protect.
+                'is_default_admin_path' => Field::bool(
+                    'Is Default Admin Path',
+                    $this->getAdminFrontName() === self::DEFAULT_ADMIN_PATH,
+                    criticalWhen: true
+                ),
+                'maintenance_mode' => Field::bool('Maintenance Mode', $this->maintenanceMode->isOn(), criticalWhen: true),
+                'sample_data_present' => Field::bool('Sample Data Present', $sampleDataModules !== [], criticalWhen: true),
+            ]),
+            'sample_data_modules' => Section::table('sample_data_modules', 'Sample Data Modules', '', array_map(
+                static fn (string $name) => Field::array($name, [
+                    'module' => Field::varchar('Module', $name),
+                ]),
                 $sampleDataModules
-            )),
+            ), keyName: 'module'),
         ];
     }
 

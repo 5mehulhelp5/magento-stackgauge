@@ -6,13 +6,13 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model\Reporter;
+namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use PHPUnit\Framework\TestCase;
-use StackNuts\ViewGento\Model\Reporter\LogReporter;
+use StackNuts\StackGauge\Model\Reporter\LogReporter;
 
 class LogReporterTest extends TestCase
 {
@@ -26,10 +26,10 @@ class LogReporterTest extends TestCase
         $reporter = new LogReporter($filesystem);
         $status = $reporter->getStatus();
 
-        $this->assertArrayHasKey('system_new_lines', $status);
-        $this->assertSame(0, $status['system_new_lines']->getValue());
+        $this->assertArrayHasKey('system_new_lines', $status['general']->getFields());
+        $this->assertSame(0, $status['general']->getFields()['system_new_lines']->getValue());
         $this->assertArrayHasKey('recent_exceptions', $status);
-        $this->assertSame([], array_map(fn($f) => $f->getValue(), $status['recent_exceptions']->getValue()));
+        $this->assertSame([], $status['recent_exceptions']->getRows());
     }
 
     public function testParsesExceptionMessages(): void
@@ -47,8 +47,8 @@ class LogReporterTest extends TestCase
         $reporter = new LogReporter($filesystem);
         $status = $reporter->getStatus();
 
-        $this->assertSame(2, $status['system_new_lines']->getValue());
-        $recent = $status['recent_exceptions']->getValue();
+        $this->assertSame(2, $status['general']->getFields()['system_new_lines']->getValue());
+        $recent = $status['recent_exceptions']->getRows();
         $this->assertCount(2, $recent);
     }
 }

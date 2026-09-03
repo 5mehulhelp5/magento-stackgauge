@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model\Reporter;
+namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use PHPUnit\Framework\TestCase;
-use StackNuts\ViewGento\Model\Reporter\PHPExtensionsReporter;
+use StackNuts\StackGauge\Model\Reporter\PHPExtensionsReporter;
 
 class PHPExtensionsReporterTest extends TestCase
 {

@@ -1,30 +1,28 @@
 <?php
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Test\Unit\Model\Reporter;
+namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use PHPUnit\Framework\TestCase;
-use Magento\User\Model\ResourceModel\User\Collection as UserCollection;
-use Magento\User\Model\ResourceModel\User\CollectionFactory as UserCollectionFactory;
-use StackNuts\ViewGento\Model\Reporter\SecurityReporter;
+use Magento\Framework\App\DeploymentConfig;
+use Magento\Framework\App\MaintenanceMode;
+use Magento\Framework\Module\ModuleListInterface;
+use StackNuts\StackGauge\Model\Reporter\SecurityReporter;
 
 class SecurityReporterTest extends TestCase
 {
     public function testGetStatusReturnsSecurityInfo(): void
     {
-        $col1 = $this->createMock(UserCollection::class);
-        $col1->method('getSize')->willReturn(3);
+        $deploymentConfig = $this->createMock(DeploymentConfig::class);
+        $maintenance = $this->createMock(MaintenanceMode::class);
+        $maintenance->method('isOn')->willReturn(false);
+        $moduleList = $this->createMock(ModuleListInterface::class);
+        $moduleList->method('getAll')->willReturn([]);
 
-        $col2 = $this->createMock(UserCollection::class);
-        $col2->method('addFieldToFilter')->willReturnSelf();
-        $col2->method('getSize')->willReturn(1);
+        $reporter = new SecurityReporter($deploymentConfig, $maintenance, $moduleList);
+        $fields = $reporter->getStatus()['general']->getFields();
 
-        $factory = $this->createMock(UserCollectionFactory::class);
-        $factory->method('create')->willReturnOnConsecutiveCalls($col1, $col2);
-
-        $reporter = new SecurityReporter($factory);
-        $status = $reporter->getStatus();
-
-        $this->assertArrayHasKey('security', $status);
+        $this->assertArrayHasKey('is_default_admin_path', $fields);
+        $this->assertArrayHasKey('maintenance_mode', $fields);
     }
 }

@@ -6,13 +6,14 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Module\ModuleResource;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 
 /**
  * Flags modules where the code's declared setup_version (module.xml) has moved ahead of
@@ -22,7 +23,7 @@ use StackNuts\ViewGento\Api\ReporterInterface;
  */
 class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
 
     public function __construct(
         private readonly ModuleListInterface $moduleList,
@@ -73,6 +74,7 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface
 
             if ($dbVersion !== $codeVersion) {
                 $drifted[] = Field::array($name, [
+                    'name' => Field::varchar('Name', $name),
                     'module' => Field::varchar('Module', $name),
                     'code_version' => Field::varchar('Code Version', $codeVersion),
                     'db_version' => Field::varchar('DB Version', $dbVersion),
@@ -83,8 +85,10 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface
         }
 
         return [
-            'drifted' => Field::array('Drifted Modules', $drifted),
-            'in_sync_count' => Field::number('In-Sync Module Count', $inSyncCount),
+            'general' => Section::facts('general', 'General', $this->getDescription(), [
+                'in_sync_count' => Field::number('In-Sync Module Count', $inSyncCount),
+            ]),
+            'drifted' => Section::table('drifted', 'Drifted Modules', 'Modules with a code/DB schema version mismatch.', $drifted),
         ];
     }
 }

@@ -6,15 +6,16 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Shell;
 use Psr\Log\LoggerInterface;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 /**
@@ -27,7 +28,7 @@ use Throwable;
  */
 class PatchReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
     private const MAX_OUTPUT_LINES = 30;
     private const MAX_LINE_LENGTH = 120;
 
@@ -69,15 +70,27 @@ class PatchReporter implements ReporterInterface, DeclaresCadenceInterface
             . '/vendor/bin/patch-status';
 
         if (!is_file($binary) || !is_executable($binary)) {
-            return ['detectable' => Field::bool('Detectable', false), 'raw_output' => Field::array('Output', [])];
+            return $this->result(false, []);
         }
 
         try {
             $output = $this->shell->execute($binary);
         } catch (Throwable $e) {
-            $this->logger->warning('ViewGento: vendor/bin/patch-status execution failed: ' . $e->getMessage());
+            $this->logger->warning('StackGauge: vendor/bin/patch-status execution failed: ' . $e->getMessage());
 
-            return ['detectable' => Field::bool('Detectable', false), 'raw_output' => Field::array('Output', [])];
+            return $this->result(false, []);
+        }
+
+        $trimmedOutput = trim($output);
+
+        // Some environments' patch-status build (or a wrapping shell alias) emits a single
+        // pretty-printed JSON blob instead of the plain per-patch text table this reporter
+        // was written against - splitting that by line previously produced one fake "patch"
+        // row per JSON line (e.g. a row literally named `"status": "NOT_APPLICABLE"`).
+        // Surfacing it as one opaque field is honest about not understanding the shape,
+        // rather than fabricating a patch list out of it.
+        if ($trimmedOutput !== '' && ($trimmedOutput[0] === '{' || $trimmedOutput[0] === '[')) {
+            return $this->result(true, [], substr($trimmedOutput, 0, self::MAX_LINE_LENGTH * self::MAX_OUTPUT_LINES));
         }
 
         $lines = array_slice(
@@ -86,15 +99,28 @@ class PatchReporter implements ReporterInterface, DeclaresCadenceInterface
             self::MAX_OUTPUT_LINES
         );
 
+        return $this->result(true, array_map(
+            static fn (string $line) => Field::array($line, [
+                'line' => Field::varchar('Line', substr($line, 0, self::MAX_LINE_LENGTH)),
+            ]),
+            $lines
+        ));
+    }
+
+    /**
+     * @param list<\StackNuts\StackGauge\Api\Field\ArrayField> $rawOutputRows
+     * @return array<string, \StackNuts\StackGauge\Api\Section\SectionInterface>
+     */
+    private function result(bool $detectable, array $rawOutputRows, ?string $unrecognizedJsonOutput = null): array
+    {
+        $generalFields = ['detectable' => Field::bool('Detectable', $detectable)];
+        if ($unrecognizedJsonOutput !== null) {
+            $generalFields['unrecognized_json_output'] = Field::varchar('Unrecognized JSON Output', $unrecognizedJsonOutput);
+        }
+
         return [
-            'detectable' => Field::bool('Detectable', true),
-            'raw_output' => Field::array('Output', array_map(
-                static fn (string $line): \StackNuts\ViewGento\Api\Field\VarcharField => Field::varchar(
-                    '',
-                    substr($line, 0, self::MAX_LINE_LENGTH)
-                ),
-                $lines
-            )),
+            'general' => Section::facts('general', 'General', '', $generalFields),
+            'raw_output' => Section::table('raw_output', 'Output', '', $rawOutputRows),
         ];
     }
 }

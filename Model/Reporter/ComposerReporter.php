@@ -6,19 +6,20 @@
 
 declare(strict_types=1);
 
-namespace StackNuts\ViewGento\Model\Reporter;
+namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Serialize\Serializer\Json;
-use StackNuts\ViewGento\Api\DeclaresCadenceInterface;
-use StackNuts\ViewGento\Api\Field\Field;
-use StackNuts\ViewGento\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\ReporterInterface;
+use StackNuts\StackGauge\Api\Section\Section;
 use Throwable;
 
 class ComposerReporter implements ReporterInterface, DeclaresCadenceInterface
 {
-    private const SCHEMA_VERSION = '2.0';
+    private const SCHEMA_VERSION = '3.0';
 
     /**
      * A small, deliberately fixed watch-list rather than every package in the lock file -
@@ -72,21 +73,23 @@ class ComposerReporter implements ReporterInterface, DeclaresCadenceInterface
 
         if (!$root->isExist('composer.lock')) {
             return [
-                'lock_hash' => Field::varchar('Lock Hash', ''),
-                'key_packages' => Field::array('Key Packages', []),
+                'general' => Section::facts('general', 'General', '', ['lock_hash' => Field::varchar('Lock Hash', '')]),
+                'key_packages' => Section::facts('key_packages', 'Key Packages', '', []),
             ];
         }
 
         $contents = $root->readFile('composer.lock');
 
         return [
-            'lock_hash' => Field::varchar('Lock Hash', 'sha256:' . hash('sha256', $contents)),
-            'key_packages' => Field::array('Key Packages', $this->extractKeyPackages($contents)),
+            'general' => Section::facts('general', 'General', '', [
+                'lock_hash' => Field::varchar('Lock Hash', 'sha256:' . hash('sha256', $contents)),
+            ]),
+            'key_packages' => Section::facts('key_packages', 'Key Packages', '', $this->extractKeyPackages($contents)),
         ];
     }
 
     /**
-     * @return array<string, \StackNuts\ViewGento\Api\Field\VarcharField>
+     * @return array<string, \StackNuts\StackGauge\Api\Field\VarcharField>
      */
     private function extractKeyPackages(string $lockFileContents): array
     {
