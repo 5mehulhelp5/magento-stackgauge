@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Cron:etc/cron_groups.xsd">
+    <group id="stackgauge">
+        <!--
+            Originally shipped with generate_every=1 / ahead_for=2, copied loosely from a
+            generic example without checking it against this group's own jobs. Verified live
+            against a real cron:run that this was a real bug, not just theoretical: with a
+            2-minute ahead-for window, Magento's schedule generator only creates a pending
+            row for the hourly send_report job during the 2 minutes immediately before each
+            hour boundary - miss that narrow window (near-certain on real system cron, which
+            typically calls cron:run every 1-5 minutes, not aligned to the hour) and the job
+            silently never gets scheduled at all. ahead_for=10 (5x the 5-minute heartbeat's
+            own period, comfortably more than generate_every) guarantees every generation run
+            overlaps the previous one's window, so neither job can fall through the gap.
+        -->
+        <schedule_generate_every>5</schedule_generate_every>
+        <schedule_ahead_for>10</schedule_ahead_for>
+        <schedule_lifetime>15</schedule_lifetime>
+        <history_cleanup_every>10</history_cleanup_every>
+        <!--
+            180 minutes (3 hourly cycles), not the default group's 60 - CronReporter reads
+            "last successful run per job" from this same history, and the hourly send_report
+            job only completes once an hour; a 60-minute success lifetime would leave a
+            window right before each new run where the previous success has already been
+            purged, making the site look like cron just died when it didn't.
+        -->
+        <history_success_lifetime>180</history_success_lifetime>
+        <history_failure_lifetime>600</history_failure_lifetime>
+        <use_separate_process>0</use_separate_process>
+    </group>
+</config>
