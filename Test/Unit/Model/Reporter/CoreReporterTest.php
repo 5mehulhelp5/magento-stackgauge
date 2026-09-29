@@ -9,6 +9,8 @@ use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\CoreReporter;
 use StackNuts\StackGauge\Model\Util\ComposerLockReader;
 
@@ -34,7 +36,9 @@ class CoreReporterTest extends TestCase
             $productMetadata,
             $appState,
             $filesystem,
-            new ComposerLockReader($filesystem, new Json())
+            new ComposerLockReader($filesystem, new Json()),
+            new Field(),
+            new Section()
         );
     }
 

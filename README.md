@@ -64,7 +64,7 @@ data. Full detail on exact fields lives in the dashboard's own documentation.
 | `ModuleReporter` | `modules` | Every registered module (enabled or not) and its resolved version |
 | `ComposerReporter` | `composer` | `composer.lock` hash and a small watch-list of key platform package versions |
 | `DbSchemaReporter` | `db_schema` | Modules whose code `setup_version` has moved ahead of what's actually applied |
-| `PatchReporter` | `patches` | Applied Adobe Quality Patches, via `vendor/bin/patch-status` when present |
+| `PatchReporter` | `patches` | Applied official Adobe Commerce security patches, via `vendor/bin/patch-status` when present |
 | `IndexerReporter` | `indexers` | Per-indexer status/mode, plus pending changelog backlog for schedule-mode indexers |
 | `CronReporter` | `cron` | Whether cron looks alive, plus last success and next due time per job |
 | `CacheReporter` | `cache` | Per-cache-type status/tags, plus the active Full Page Cache backend |

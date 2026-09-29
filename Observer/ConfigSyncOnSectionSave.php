@@ -22,12 +22,21 @@ use Throwable;
  */
 class ConfigSyncOnSectionSave implements ObserverInterface
 {
+    /**
+     * @param ReportSender $reportSender
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly ReportSender $reportSender,
         private readonly LoggerInterface $logger
     ) {
     }
 
+    /**
+     * Fires an immediate config-sync - see this class's own docblock for when this runs.
+     *
+     * @param EventObserver $observer
+     */
     public function execute(EventObserver $observer): void
     {
         try {

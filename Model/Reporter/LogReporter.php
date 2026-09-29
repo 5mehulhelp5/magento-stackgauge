@@ -34,7 +34,7 @@ use Throwable;
  * CLI/cron kept working throughout (unlimited memory_limit there), which is why this only
  * ever surfaced via the admin "Send Now" button.
  */
-final class LogReporter implements ReporterInterface, MetricCatalogInterface, DeclaresSectionInterface
+class LogReporter implements ReporterInterface, MetricCatalogInterface, DeclaresSectionInterface
 {
     use PlatformSectionTrait;
 
@@ -56,32 +56,55 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
      */
     private const MAX_LINE_LENGTH = 65536;
 
+    /**
+     * @param Filesystem $filesystem
+     * @param Config $config
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly Filesystem $filesystem,
-        private readonly Config $config
+        private readonly Config $config,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the logs reporter.
+     */
     public function getName(): string
     {
         return 'logs';
     }
 
+    /**
+     * Human-readable label for the logs reporter block.
+     */
     public function getLabel(): string
     {
         return 'Logs';
     }
 
+    /**
+     * One-line summary of what the logs reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Recent log activity and exception summaries.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports system.log new-line count, exception.log's distilled summary, and a raw tail per admin-monitored file.
+     */
     public function getStatus(): array
     {
         $logDir = $this->filesystem->getDirectoryRead(DirectoryList::LOG);
@@ -90,9 +113,9 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
         $exceptionScan = $this->scanExceptionLog($logDir, self::EXCEPTION_LOG);
 
         $sections = [
-            'general' => Section::facts('general', 'General', '', [
-                'system_new_lines' => Field::number('System new lines', $systemLines),
-                'exception_count' => Field::trackableNumber(
+            'general' => $this->section->facts('general', 'General', '', [
+                'system_new_lines' => $this->field->number('System new lines', $systemLines),
+                'exception_count' => $this->field->trackableNumber(
                     'Exception Count',
                     $exceptionScan['total'],
                     self::METRIC_EXCEPTION_COUNT,
@@ -102,9 +125,9 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
             // No keyName override: identical exception messages recurring in the log window
             // are common and not a reporter bug, so this deliberately skips the
             // duplicate-row check (which needs every row to share the missing "name" column).
-            'recent_exceptions' => Section::table('recent_exceptions', 'Recent exceptions', '', array_map(
-                fn($m) => Field::array($m, [
-                    'message' => Field::varchar('Message', $m),
+            'recent_exceptions' => $this->section->table('recent_exceptions', 'Recent exceptions', '', array_map(
+                fn($m) => $this->field->array($m, [
+                    'message' => $this->field->varchar('Message', $m),
                 ]),
                 $exceptionScan['recent']
             )),
@@ -115,8 +138,8 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
             // exception.log's tail was already collected above in the same streaming pass -
             // reuse it rather than streaming the same (potentially huge) file a second time.
             $lines = $file === self::EXCEPTION_LOG ? $exceptionScan['tail'] : $this->tailLines($logDir, $file);
-            $sections[$key] = Section::table($key, $name, '', array_map(
-                fn(string $line) => Field::array('', ['line' => Field::varchar('Line', $line)]),
+            $sections[$key] = $this->section->table($key, $name, '', array_map(
+                fn(string $line) => $this->field->array('', ['line' => $this->field->varchar('Line', $line)]),
                 $lines
             ));
         }
@@ -124,6 +147,9 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
         return $sections;
     }
 
+    /**
+     * Alertable metric for the logs reporter: new exception.log occurrences since the last sample.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -140,12 +166,21 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
         ];
     }
 
+    /**
+     * Derives a payload section key from a monitored log file name, e.g. "system.log" -> "tail_system_log".
+     *
+     * @param string $file
+     */
     private function tailSectionKey(string $file): string
     {
         return 'tail_' . preg_replace('/[^a-z0-9]+/', '_', strtolower($file));
     }
 
     /**
+     * Reads the last TAIL_LINE_COUNT non-empty lines of $file, streamed rather than loaded whole into memory.
+     *
+     * @param ReadInterface $dir
+     * @param string $file
      * @return list<string>
      */
     private function tailLines(ReadInterface $dir, string $file): array
@@ -166,6 +201,12 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
         return $tail;
     }
 
+    /**
+     * Counts the lines in $file, streamed rather than loaded whole into memory.
+     *
+     * @param ReadInterface $dir
+     * @param string $file
+     */
     private function countLines(ReadInterface $dir, string $file): int
     {
         $count = 0;
@@ -182,6 +223,8 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
      * up to 5 unique recent messages, last 50 raw lines) - the file is only ever read once
      * regardless of how many of these are needed.
      *
+     * @param ReadInterface $dir
+     * @param string $file
      * @return array{total: int, recent: string[], tail: list<string>}
      */
     private function scanExceptionLog(ReadInterface $dir, string $file): array
@@ -214,6 +257,10 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
      * Streams $file one line at a time, calling $onLine for each line with its line-ending
      * stripped. A missing file or any read error is treated the same as an empty file - this
      * reporter must never fail a whole report over one unreadable log.
+     *
+     * @param ReadInterface $dir
+     * @param string $file
+     * @param callable $onLine
      */
     private function streamLines(ReadInterface $dir, string $file, callable $onLine): void
     {
@@ -236,6 +283,7 @@ final class LogReporter implements ReporterInterface, MetricCatalogInterface, De
             } finally {
                 $stream->close();
             }
+        // phpcs:ignore Magento2.CodeAnalysis.EmptyBlock.DetectedCatch
         } catch (Throwable) {
             // Best-effort - an unreadable log must not fail this reporter or the whole report.
         }

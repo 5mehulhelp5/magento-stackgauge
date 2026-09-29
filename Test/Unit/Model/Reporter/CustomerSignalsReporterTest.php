@@ -8,6 +8,8 @@ use Magento\Customer\Model\ResourceModel\Customer\Collection as CustomerCollecti
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory as CustomerCollectionFactory;
 use Magento\Sales\Model\ResourceModel\Order\Collection as OrderCollection;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory as OrderCollectionFactory;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\CustomerSignalsReporter;
 use StackNuts\StackGauge\Model\Util\Clock;
 
@@ -36,7 +38,7 @@ class CustomerSignalsReporterTest extends TestCase
         $orderFactory = $this->createMock(OrderCollectionFactory::class);
         $orderFactory->method('create')->willReturnOnConsecutiveCalls($orderCol, $orderGuest);
 
-        $reporter = new CustomerSignalsReporter($custFactory, $orderFactory, new Clock());
+        $reporter = new CustomerSignalsReporter($custFactory, $orderFactory, new Clock(), new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('general', $status);

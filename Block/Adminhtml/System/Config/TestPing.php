@@ -18,6 +18,9 @@ use Magento\Framework\Data\Form\Element\AbstractElement;
  */
 class TestPing extends Field
 {
+    /**
+     * Assigns the phtml template that renders the Test Ping button.
+     */
     protected function _prepareLayout()
     {
         parent::_prepareLayout();
@@ -25,6 +28,13 @@ class TestPing extends Field
         return $this;
     }
 
+    /**
+     * Strips the scope/website/default-value UI affordances before rendering.
+     *
+     * This is a button, not a real config value, so those don't apply.
+     *
+     * @param AbstractElement $element
+     */
     public function render(AbstractElement $element)
     {
         $element = clone $element;
@@ -40,6 +50,11 @@ class TestPing extends Field
         return parent::render($element);
     }
 
+    /**
+     * Passes the element's HTML id and the test-ping AJAX URL to the template.
+     *
+     * @param AbstractElement $element
+     */
     protected function _getElementHtml(AbstractElement $element)
     {
         $this->addData([

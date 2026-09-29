@@ -34,32 +34,58 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface, M
     private const SCHEMA_VERSION = '1.0';
     private const METRIC_DRIFTED_COUNT = 'db_schema.drifted_count';
 
+    /**
+     * @param ModuleListInterface $moduleList
+     * @param ModuleResource $moduleResource
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly ModuleListInterface $moduleList,
-        private readonly ModuleResource $moduleResource
+        private readonly ModuleResource $moduleResource,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the db-schema-drift reporter.
+     */
     public function getName(): string
     {
         return 'db_schema';
     }
 
+    /**
+     * Human-readable label for the db-schema-drift reporter block.
+     */
     public function getLabel(): string
     {
         return 'DB Schema Drift';
     }
 
+    /**
+     * One-line summary of what the db-schema-drift reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Modules whose code setup_version has moved ahead of what setup:upgrade has actually applied.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the in-sync and drifted module counts, plus a table of drifted modules.
+     *
+     * Compares each module's code setup_version (ModuleListInterface) against its setup_module DB row
+     * (ModuleResource).
+     */
     public function getStatus(): array
     {
         $drifted = [];
@@ -77,10 +103,10 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface, M
             }
 
             if ($dbVersion !== $codeVersion) {
-                $drifted[] = Field::array($name, [
-                    'name' => Field::varchar('Name', $name),
-                    'code_version' => Field::varchar('Code Version', $codeVersion),
-                    'db_version' => Field::varchar('DB Version', $dbVersion),
+                $drifted[] = $this->field->array($name, [
+                    'name' => $this->field->varchar('Name', $name),
+                    'code_version' => $this->field->varchar('Code Version', $codeVersion),
+                    'db_version' => $this->field->varchar('DB Version', $dbVersion),
                 ]);
             } else {
                 $inSyncCount++;
@@ -88,19 +114,22 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface, M
         }
 
         return [
-            'general' => Section::facts('general', 'General', '', [
-                'in_sync_count' => Field::number('In-Sync Module Count', $inSyncCount),
-                'drifted_count' => Field::trackableNumber(
+            'general' => $this->section->facts('general', 'General', '', [
+                'in_sync_count' => $this->field->number('In-Sync Module Count', $inSyncCount),
+                'drifted_count' => $this->field->trackableNumber(
                     'Drifted Module Count',
                     count($drifted),
                     self::METRIC_DRIFTED_COUNT,
                     MetricDefinition::AGGREGATION_LATEST
                 ),
             ]),
-            'drifted' => Section::table('drifted', 'Drifted Modules', '', $drifted),
+            'drifted' => $this->section->table('drifted', 'Drifted Modules', '', $drifted),
         ];
     }
 
+    /**
+     * Alertable metric for the db-schema-drift reporter: any module with a drifted setup_version.
+     */
     public function getTrackableMetrics(): array
     {
         return [

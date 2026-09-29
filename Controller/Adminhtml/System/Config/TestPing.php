@@ -28,16 +28,28 @@ class TestPing extends Action implements HttpPostActionInterface
 {
     public const ADMIN_RESOURCE = 'Magento_Config::config';
 
+    /**
+     * @param Action\Context $context
+     * @param JsonFactory $jsonFactory
+     * @param Config $config
+     * @param ReportSender $reportSender
+     * @param HeartbeatSender $heartbeatSender
+     */
     public function __construct(
         Action\Context $context,
         private readonly JsonFactory $jsonFactory,
         private readonly Config $config,
-        private readonly ReportSender $reportSender
-        , private readonly HeartbeatSender $heartbeatSender
+        private readonly ReportSender $reportSender,
+        private readonly HeartbeatSender $heartbeatSender
     ) {
         parent::__construct($context);
     }
 
+    /**
+     * Sends a real full report of every cadence tier plus a heartbeat and config-sync.
+     *
+     * Reports whether the dashboard accepted it.
+     */
     public function execute(): Json
     {
         $result = $this->jsonFactory->create();
@@ -62,12 +74,14 @@ class TestPing extends Action implements HttpPostActionInterface
 
         try {
             $this->heartbeatSender->sendNow();
+        // phpcs:ignore Magento2.CodeAnalysis.EmptyBlock.DetectedCatch
         } catch (Throwable) {
             // best-effort, don't block the report result on heartbeat
         }
 
         try {
             $this->reportSender->sendConfigSyncNow();
+        // phpcs:ignore Magento2.CodeAnalysis.EmptyBlock.DetectedCatch
         } catch (Throwable) {
             // best-effort, don't block the report result on config-sync
         }

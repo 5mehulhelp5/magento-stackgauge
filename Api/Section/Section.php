@@ -12,17 +12,18 @@ use StackNuts\StackGauge\Api\Field\ArrayField;
 
 /**
  * Entry point for building a reporter's status sections - construct instances via these
- * factories, not the concrete Section classes directly:
+ * factories (injected as $this->section in a reporter), not the concrete Section classes
+ * directly:
  *
- *     Section::facts('general', 'General', 'Edition, version, PHP version.', [
- *         'edition' => Field::varchar('Edition', 'Community'),
- *         'version' => Field::varchar('Magento Version', '2.4.9'),
+ *     $this->section->facts('general', 'General', 'Edition, version, PHP version.', [
+ *         'edition' => $this->field->varchar('Edition', 'Community'),
+ *         'version' => $this->field->varchar('Magento Version', '2.4.9'),
  *     ])
  *
- *     Section::table('modules', 'Modules', 'Every registered module.', [
- *         Field::array('Magento_Catalog', [
- *             'name' => Field::varchar('Name', 'Magento_Catalog'),
- *             'version' => Field::varchar('Version', '103.0.5'),
+ *     $this->section->table('modules', 'Modules', 'Every registered module.', [
+ *         $this->field->array('Magento_Catalog', [
+ *             'name' => $this->field->varchar('Name', 'Magento_Catalog'),
+ *             'version' => $this->field->varchar('Version', '103.0.5'),
  *         ]),
  *         ...
  *     ])
@@ -32,34 +33,44 @@ use StackNuts\StackGauge\Api\Field\ArrayField;
  * doesn't fit gets a thrown InvalidArgumentException, which ReporterPool catches the same way
  * it catches any other reporter failure.
  */
-final class Section
+class Section
 {
     public const KIND_FACTS = 'facts';
     public const KIND_TABLE = 'table';
 
     /**
-     * A flat key -> scalar Field map, rendered as a small key/value fact table. No value may
-     * be array-shaped - split those out into their own Section::table() instead.
+     * A flat key -> scalar Field map, rendered as a small key/value fact table.
      *
-     * @param array<string, \StackNuts\StackGauge\Api\Field\FieldInterface> $fields
+     * No value may be array-shaped - split those out into their own Section::table() instead.
+     *
+     * @param string $key
+     * @param string $label
+     * @param string $description
+     * @param array<string,\StackNuts\StackGauge\Api\Field\FieldInterface> $fields
      */
-    public static function facts(string $key, string $label, string $description, array $fields): FactsSection
+    public function facts(string $key, string $label, string $description, array $fields): FactsSection
     {
         return new FactsSection($key, $label, $description, $fields);
     }
 
     /**
-     * A homogeneous list of same-shaped records, rendered as one table. Each row is an
-     * ArrayField built the same way a reporter already builds one record today -
-     * Field::array($rowLabel, ['col' => Field::...]) - of scalar Fields only (no nesting).
+     * A homogeneous list of same-shaped records, rendered as one table.
+     *
+     * Each row is an ArrayField built the same way a reporter already builds one record
+     * today - Field::array($rowLabel, ['col' => Field::...]) - of scalar Fields only (no
+     * nesting).
      *
      * $keyName (default "name"), if every row has a column by that name, is used only to
      * detect a reporter bug (two rows sharing the same name) at construction time - it does
      * not change the wire shape, which is always an ordered list of rows.
      *
-     * @param array<int, ArrayField> $rows
+     * @param string $key
+     * @param string $label
+     * @param string $description
+     * @param array<int,ArrayField> $rows
+     * @param string $keyName
      */
-    public static function table(
+    public function table(
         string $key,
         string $label,
         string $description,

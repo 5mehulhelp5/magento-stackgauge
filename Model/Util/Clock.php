@@ -17,6 +17,9 @@ namespace StackNuts\StackGauge\Model\Util;
  */
 class Clock
 {
+    /**
+     * The current instant, always UTC.
+     */
     public function now(): \DateTimeImmutable
     {
         return new \DateTimeImmutable('now', new \DateTimeZone('UTC'));

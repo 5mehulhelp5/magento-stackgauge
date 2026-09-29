@@ -31,20 +31,25 @@ use StackNuts\StackGauge\Api\Section\SectionInterface;
 interface ReporterInterface
 {
     /**
-     * Payload key this reporter contributes under, e.g. "cloudflare". Must be unique across
-     * every registered reporter.
+     * Payload key this reporter contributes under, e.g. "cloudflare".
+     *
+     * Must be unique across every registered reporter.
      */
     public function getName(): string;
 
     /**
-     * Short human-readable name for this reporter, e.g. "Redis" - shown as a heading on the
-     * dashboard so a third-party reporter's block is self-explanatory, not just a raw key.
+     * Short human-readable name for this reporter, e.g. "Redis".
+     *
+     * Shown as a heading on the dashboard so a third-party reporter's block is
+     * self-explanatory, not just a raw key.
      */
     public function getLabel(): string;
 
     /**
-     * One or two sentences on what this reporter covers, e.g. "Reachability and version of
-     * Redis-backed cache and session backends." Shown alongside getLabel() on the dashboard.
+     * One or two sentences on what this reporter covers.
+     *
+     * E.g. "Reachability and version of Redis-backed cache and session backends." Shown
+     * alongside getLabel() on the dashboard.
      */
     public function getDescription(): string;
 
@@ -59,6 +64,8 @@ interface ReporterInterface
     public function getSchemaVersion(): string;
 
     /**
+     * Every section this reporter contributes, keyed by section key.
+     *
      * @return array<string, SectionInterface>
      */
     public function getStatus(): array;

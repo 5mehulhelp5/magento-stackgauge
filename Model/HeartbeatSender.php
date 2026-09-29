@@ -21,6 +21,11 @@ class HeartbeatSender
 {
     private const SCHEMA_VERSION = '1.0';
 
+    /**
+     * @param Config $config
+     * @param MaintenanceMode $maintenanceMode
+     * @param Transport $transport
+     */
     public function __construct(
         private readonly Config $config,
         private readonly MaintenanceMode $maintenanceMode,
@@ -28,6 +33,9 @@ class HeartbeatSender
     ) {
     }
 
+    /**
+     * Sends a heartbeat, respecting the admin "Enabled" toggle.
+     */
     public function send(): bool
     {
         if (!$this->config->isEnabled()) {
@@ -38,8 +46,9 @@ class HeartbeatSender
     }
 
     /**
-     * Send a heartbeat unconditionally (ignores the "Enabled" toggle). Used
-     * by admin Test Ping so connectivity can be verified mid-setup.
+     * Sends a heartbeat unconditionally (ignores the "Enabled" toggle).
+     *
+     * Used by admin Test Ping so connectivity can be verified mid-setup.
      */
     public function sendNow(): bool
     {

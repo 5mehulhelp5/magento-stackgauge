@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\Component\ComponentRegistrar;
+use Magento\Framework\Filesystem\Driver\File;
 use Magento\Framework\Module\FullModuleList;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Serialize\Serializer\Json;
@@ -38,35 +39,63 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
 
     private const SCHEMA_VERSION = '1.0';
 
+    /**
+     * @param FullModuleList $fullModuleList
+     * @param ModuleListInterface $enabledModuleList
+     * @param ComponentRegistrar $componentRegistrar
+     * @param Json $json
+     * @param ComposerLockReader $composerLockReader
+     * @param File $filesystemDriver
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly FullModuleList $fullModuleList,
         private readonly ModuleListInterface $enabledModuleList,
         private readonly ComponentRegistrar $componentRegistrar,
         private readonly Json $json,
-        private readonly ComposerLockReader $composerLockReader
+        private readonly ComposerLockReader $composerLockReader,
+        private readonly File $filesystemDriver,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the modules reporter.
+     */
     public function getName(): string
     {
         return 'modules';
     }
 
+    /**
+     * Human-readable label for the modules reporter block.
+     */
     public function getLabel(): string
     {
         return 'Modules';
     }
 
+    /**
+     * One-line summary of what the modules reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Every registered module (enabled or not), with its resolved code version.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports every registered module's name, Composer package, resolved version, version source, and enabled flag.
+     */
     public function getStatus(): array
     {
         $lockedVersions = $this->readComposerLockVersions();
@@ -76,24 +105,30 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
             $packageName = $this->readComposerPackageName($name);
             [$version, $source] = $this->resolveVersion($packageName, $info['setup_version'] ?? null, $lockedVersions);
 
-            $modules[] = Field::array($name, [
-                'name' => Field::varchar('Name', $name),
+            $modules[] = $this->field->array($name, [
+                'name' => $this->field->varchar('Name', $name),
                 // The Composer package name (e.g. "magento/module-catalog"), not just the
                 // Magento module name - needed on the dashboard side to look up the latest
                 // available version from Packagist/Marketplace/vendor repositories, which are
                 // keyed by package name and have no idea what "Magento_Catalog" is.
-                'package' => Field::varchar('Composer Package', $packageName ?? ''),
-                'version' => Field::varchar('Version', $version ?? ''),
-                'version_source' => Field::varchar('Version Source', $source),
-                'enabled' => Field::bool('Enabled', $this->enabledModuleList->has($name)),
+                'package' => $this->field->varchar('Composer Package', $packageName ?? ''),
+                'version' => $this->field->varchar('Version', $version ?? ''),
+                'version_source' => $this->field->varchar('Version Source', $source),
+                'enabled' => $this->field->bool('Enabled', $this->enabledModuleList->has($name)),
             ]);
         }
 
-        return ['modules' => Section::table('modules', 'Installed Modules', $this->getDescription(), $modules)];
+        return [
+            'modules' => $this->section->table('modules', 'Installed Modules', $this->getDescription(), $modules),
+        ];
     }
 
     /**
-     * @param array<string, string> $lockedVersions
+     * Resolves a module's version, preferring composer.lock over module.xml's setup_version.
+     *
+     * @param string|null $packageName
+     * @param string|null $setupVersion
+     * @param array<string,string> $lockedVersions
      * @return array{0: ?string, 1: string} [version, source]
      */
     private function resolveVersion(?string $packageName, ?string $setupVersion, array $lockedVersions): array
@@ -109,6 +144,11 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
         return [null, 'unknown'];
     }
 
+    /**
+     * Reads a module's Composer package name from its own composer.json, via ComponentRegistrar's module path.
+     *
+     * @param string $moduleName
+     */
     private function readComposerPackageName(string $moduleName): ?string
     {
         $modulePath = $this->componentRegistrar->getPath(ComponentRegistrar::MODULE, $moduleName);
@@ -117,12 +157,12 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
         }
 
         $composerJsonPath = rtrim($modulePath, '/') . '/composer.json';
-        if (!is_readable($composerJsonPath)) {
+        if (!$this->filesystemDriver->isReadable($composerJsonPath)) {
             return null;
         }
 
         try {
-            $data = $this->json->unserialize((string)file_get_contents($composerJsonPath));
+            $data = $this->json->unserialize((string)$this->filesystemDriver->fileGetContents($composerJsonPath));
             return $data['name'] ?? null;
         } catch (Throwable) {
             return null;
@@ -130,6 +170,8 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
     }
 
     /**
+     * Indexes composer.lock's packages and packages-dev by package name for O(1) version lookup.
+     *
      * @return array<string, string>
      */
     private function readComposerLockVersions(): array

@@ -11,14 +11,14 @@ class VarcharFieldTest extends TestCase
 {
     public function testJsonSerializeOmitsCriticalValuesAndSeverityByDefault(): void
     {
-        $field = Field::varchar('Name', 'Magento_Catalog');
+        $field = (new Field())->varchar('Name', 'Magento_Catalog');
 
         $this->assertSame(['type' => 'varchar', 'label' => 'Name', 'value' => 'Magento_Catalog'], $field->jsonSerialize());
     }
 
     public function testJsonSerializeIncludesCriticalValuesWhenSet(): void
     {
-        $field = Field::varchar('Status', 'Suspended', ['Reindex required', 'Suspended']);
+        $field = (new Field())->varchar('Status', 'Suspended', ['Reindex required', 'Suspended']);
 
         $this->assertSame(
             [
@@ -33,7 +33,7 @@ class VarcharFieldTest extends TestCase
 
     public function testJsonSerializeIncludesSeverityWhenSet(): void
     {
-        $field = Field::varchar('Schedule Status', 'idle (0 in backlog)', severity: Field::SEVERITY_OK);
+        $field = (new Field())->varchar('Schedule Status', 'idle (0 in backlog)', severity: Field::SEVERITY_OK);
 
         $this->assertSame(
             [
@@ -50,13 +50,29 @@ class VarcharFieldTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::varchar('Schedule Status', 'idle (0 in backlog)', severity: 'terrible');
+        (new Field())->varchar('Schedule Status', 'idle (0 in backlog)', severity: 'terrible');
     }
 
     public function testRejectsBothCriticalValuesAndSeverityAtOnce(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::varchar('Status', 'Suspended', criticalValues: ['Suspended'], severity: Field::SEVERITY_CRITICAL);
+        (new Field())->varchar('Status', 'Suspended', criticalValues: ['Suspended'], severity: Field::SEVERITY_CRITICAL);
+    }
+
+    /**
+     * A real byte sequence seen in production: \xD1 expects a UTF-8 continuation byte in
+     * 0x80-0xBF but \x40 isn't one. Magento's Json::serialize() throws on the first invalid
+     * byte anywhere in a report payload, killing every reporter's data - not just this field's
+     * - so construction must scrub rather than pass invalid bytes through untouched.
+     */
+    public function testScrubsInvalidUtf8InsteadOfThrowing(): void
+    {
+        $field = (new Field())->varchar('Line', "Bearer \xD1\x40 is not valid header value.");
+
+        $value = $field->getValue();
+
+        $this->assertTrue(mb_check_encoding($value, 'UTF-8'));
+        $this->assertNotFalse(json_encode(['v' => $field->jsonSerialize()]));
     }
 }

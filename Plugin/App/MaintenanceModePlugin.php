@@ -21,6 +21,10 @@ use Throwable;
  */
 class MaintenanceModePlugin
 {
+    /**
+     * @param HeartbeatSender $heartbeatSender
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly HeartbeatSender $heartbeatSender,
         private readonly LoggerInterface $logger
@@ -28,6 +32,9 @@ class MaintenanceModePlugin
     }
 
     /**
+     * Fires an out-of-band heartbeat after MaintenanceMode::set() - see this class's own docblock.
+     *
+     * @param MaintenanceMode $subject
      * @param bool $result
      * @return bool
      */

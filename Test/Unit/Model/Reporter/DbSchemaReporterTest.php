@@ -6,6 +6,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Module\ModuleResource;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\DbSchemaReporter;
 
 class DbSchemaReporterTest extends TestCase
@@ -20,7 +22,7 @@ class DbSchemaReporterTest extends TestCase
             fn (string $name) => $dbVersions[$name] ?? false
         );
 
-        return new DbSchemaReporter($moduleList, $moduleResource);
+        return new DbSchemaReporter($moduleList, $moduleResource, new Field(), new Section());
     }
 
     public function testADriftedModuleReportsNameWithoutDuplicatingIt(): void

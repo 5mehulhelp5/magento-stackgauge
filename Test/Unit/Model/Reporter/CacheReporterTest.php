@@ -6,6 +6,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use PHPUnit\Framework\TestCase;
 use Magento\Framework\App\Cache\TypeListInterface;
 use Magento\PageCache\Model\Config as PageCacheConfig;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\CacheReporter;
 
 class CacheReporterTest extends TestCase
@@ -20,7 +22,7 @@ class CacheReporterTest extends TestCase
         $pageCacheConfig->method('getType')->willReturn(PageCacheConfig::BUILT_IN);
         $pageCacheConfig->method('isEnabled')->willReturn(true);
 
-        return new CacheReporter($typeList, $pageCacheConfig);
+        return new CacheReporter($typeList, $pageCacheConfig, new Field(), new Section());
     }
 
     public function testFullPageCacheComesBeforeTypes(): void
@@ -104,7 +106,7 @@ class CacheReporterTest extends TestCase
         $pageCacheConfig->method('getType')->willReturn(3);
         $pageCacheConfig->method('isEnabled')->willReturn(true);
 
-        $reporter = new CacheReporter($typeList, $pageCacheConfig);
+        $reporter = new CacheReporter($typeList, $pageCacheConfig, new Field(), new Section());
         $fpc = $reporter->getStatus()['full_page_cache']->getFields();
 
         $this->assertSame('custom', $fpc['type_label']->getValue());

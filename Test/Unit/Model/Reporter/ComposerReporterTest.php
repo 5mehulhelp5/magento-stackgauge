@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\ComposerReporter;
 use StackNuts\StackGauge\Model\Util\ComposerLockReader;
 
@@ -19,7 +21,7 @@ class ComposerReporterTest extends TestCase
         $reader = $this->createStub(ComposerLockReader::class);
         $reader->method('getRawContents')->willReturn(null);
 
-        $status = (new ComposerReporter($reader))->getStatus();
+        $status = (new ComposerReporter($reader, new Field(), new Section()))->getStatus();
 
         $this->assertSame('', $status['general']->getFields()['lock_hash']->getValue());
         $this->assertSame([], $status['key_packages']->getFields());
@@ -38,7 +40,7 @@ class ComposerReporterTest extends TestCase
         $reader->method('getRawContents')->willReturn($contents);
         $reader->method('getDecoded')->willReturn(json_decode($contents, true));
 
-        $status = (new ComposerReporter($reader))->getStatus();
+        $status = (new ComposerReporter($reader, new Field(), new Section()))->getStatus();
 
         $this->assertSame('sha256:' . hash('sha256', $contents), $status['general']->getFields()['lock_hash']->getValue());
 

@@ -12,6 +12,8 @@ use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Config;
 use StackNuts\StackGauge\Model\Reporter\LogReporter;
 
@@ -39,7 +41,7 @@ class LogReporterTest extends TestCase
         $config = $this->createMock(Config::class);
         $config->method('getMonitoredLogFiles')->willReturn($monitoredLogFiles);
 
-        return new LogReporter($filesystem, $config);
+        return new LogReporter($filesystem, $config, new Field(), new Section());
     }
 
     public function testEmptyWhenLogsMissing(): void
@@ -160,6 +162,31 @@ Exception: message one',
         $this->assertSame('Payment Gateway', $status['tail_payment_gateway_log']->getLabel());
     }
 
+    /**
+     * Reproduces the production crash: a log line containing invalid UTF-8 (a raw/corrupted
+     * Bearer token, in the real case) must not survive into the varchar field untouched -
+     * VarcharField::clean() scrubs it, but this proves the whole reporter path holds up too.
+     */
+    public function testTailedLinesWithInvalidUtf8DontBreakSerialization(): void
+    {
+        $badLine = "Bearer \xD1\x40 is not valid header value.";
+        $status = $this->reporter(
+            ['system.log' => "ok line\n{$badLine}\n"],
+            monitoredLogFiles: ['system.log' => 'System Log']
+        )->getStatus();
+
+        $lines = array_map(
+            fn ($row) => $row->getValue()['line']->getValue(),
+            $status['tail_system_log']->getRows()
+        );
+
+        $this->assertCount(2, $lines);
+        foreach ($lines as $line) {
+            $this->assertTrue(mb_check_encoding($line, 'UTF-8'));
+        }
+        $this->assertNotFalse(json_encode($status['tail_system_log']->getRows()));
+    }
+
     public function testDoesNotLoadTheWholeFileIntoMemoryToTailIt(): void
     {
         // The whole point of streaming: a file far larger than would ever fit comfortably in
@@ -176,79 +203,5 @@ Exception: message one',
         $rows = $status['tail_big_log']->getRows();
         $this->assertCount(50, $rows);
         $this->assertSame("line {$lineCount}", $rows[49]->getValue()['line']->getValue());
-    }
-}
-
-/**
- * Minimal Filesystem\File\ReadInterface double: hands back $content one line at a time via
- * readLine()/eof(), the same contract LogReporter streams against. Methods it never calls
- * intentionally throw, so a future accidental whole-file read shows up as a test failure
- * rather than silently working against the fake.
- */
-final class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
-{
-    /** @var list<string> */
-    private array $lines;
-
-    private int $position = 0;
-
-    public function __construct(string $content)
-    {
-        $this->lines = $content === '' ? [] : explode("\n", $content);
-
-        // A trailing "\n" produces one trailing empty element from explode() - a real file
-        // stream's eof() flips true right after the last real line, not one call later.
-        if ($this->lines !== [] && end($this->lines) === '') {
-            array_pop($this->lines);
-        }
-    }
-
-    public function eof()
-    {
-        return $this->position >= count($this->lines);
-    }
-
-    public function readLine($length, $ending = null)
-    {
-        if ($this->eof()) {
-            return false;
-        }
-
-        return $this->lines[$this->position++] . "\n";
-    }
-
-    public function close()
-    {
-        return true;
-    }
-
-    public function read($length)
-    {
-        throw new \LogicException('FakeLineStream does not support read() - LogReporter should only use readLine().');
-    }
-
-    public function readAll($flag = null, $context = null)
-    {
-        throw new \LogicException('FakeLineStream does not support readAll() - LogReporter should only use readLine().');
-    }
-
-    public function readCsv($length = 0, $delimiter = ',', $enclosure = '"', $escape = "\0")
-    {
-        throw new \LogicException('FakeLineStream does not support readCsv().');
-    }
-
-    public function tell()
-    {
-        throw new \LogicException('FakeLineStream does not support tell().');
-    }
-
-    public function seek($length, $whence = SEEK_SET)
-    {
-        throw new \LogicException('FakeLineStream does not support seek().');
-    }
-
-    public function stat()
-    {
-        throw new \LogicException('FakeLineStream does not support stat().');
     }
 }

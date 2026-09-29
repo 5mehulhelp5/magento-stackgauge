@@ -12,7 +12,12 @@ class TrackableNumberFieldTest extends TestCase
 {
     public function testJsonSerializeOmitsSeverityByDefault(): void
     {
-        $field = Field::trackableNumber('Free Percent', 47.9, 'disk.media.free_percent', MetricDefinition::AGGREGATION_LATEST);
+        $field = (new Field())->trackableNumber(
+            'Free Percent',
+            47.9,
+            'disk.media.free_percent',
+            MetricDefinition::AGGREGATION_LATEST
+        );
 
         $this->assertSame(
             [
@@ -28,7 +33,7 @@ class TrackableNumberFieldTest extends TestCase
 
     public function testJsonSerializeIncludesSeverityWhenSet(): void
     {
-        $field = Field::trackableNumber(
+        $field = (new Field())->trackableNumber(
             'Free Percent',
             4.2,
             'disk.media.free_percent',
@@ -43,6 +48,12 @@ class TrackableNumberFieldTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::trackableNumber('Free Percent', 4.2, 'disk.media.free_percent', MetricDefinition::AGGREGATION_LATEST, 'terrible');
+        (new Field())->trackableNumber(
+            'Free Percent',
+            4.2,
+            'disk.media.free_percent',
+            MetricDefinition::AGGREGATION_LATEST,
+            'terrible'
+        );
     }
 }

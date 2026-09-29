@@ -17,10 +17,13 @@ use StackNuts\StackGauge\Api\Field\FieldInterface;
  * canonical shape": no value may be an ArrayField. A reporter with array-shaped data belongs
  * in a sibling Section::table() instead - see Section's own docblock for the pattern.
  */
-final class FactsSection implements SectionInterface
+class FactsSection implements SectionInterface
 {
     /**
-     * @param array<string, FieldInterface> $fields
+     * @param string $key
+     * @param string $label
+     * @param string $description
+     * @param array<string,FieldInterface> $fields
      */
     public function __construct(
         private readonly string $key,
@@ -49,27 +52,41 @@ final class FactsSection implements SectionInterface
         }
     }
 
+    /**
+     * The key passed to the constructor.
+     */
     public function getKey(): string
     {
         return $this->key;
     }
 
+    /**
+     * Always Section::KIND_FACTS.
+     */
     public function getKind(): string
     {
         return Section::KIND_FACTS;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The description passed to the constructor.
+     */
     public function getDescription(): string
     {
         return $this->description;
     }
 
     /**
+     * The fields passed to the constructor.
+     *
      * @return array<string, FieldInterface>
      */
     public function getFields(): array
@@ -77,6 +94,9 @@ final class FactsSection implements SectionInterface
         return $this->fields;
     }
 
+    /**
+     * Wire representation of this section.
+     */
     public function jsonSerialize(): array
     {
         return [

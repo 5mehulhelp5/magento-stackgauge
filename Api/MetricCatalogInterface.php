@@ -19,6 +19,8 @@ namespace StackNuts\StackGauge\Api;
 interface MetricCatalogInterface
 {
     /**
+     * Every numeric field this reporter has declared worth alerting on.
+     *
      * @return MetricDefinition[]
      */
     public function getTrackableMetrics(): array;

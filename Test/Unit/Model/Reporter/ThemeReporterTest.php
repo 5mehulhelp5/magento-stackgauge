@@ -5,6 +5,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use PHPUnit\Framework\TestCase;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\ThemeReporter;
 
 class ThemeReporterTest extends TestCase
@@ -14,7 +16,7 @@ class ThemeReporterTest extends TestCase
         $scopeConfig = $this->createMock(ScopeConfigInterface::class);
         $scopeConfig->method('getValue')->willReturnOnConsecutiveCalls('frontend_theme', 'admin_theme');
 
-        $reporter = new ThemeReporter($scopeConfig);
+        $reporter = new ThemeReporter($scopeConfig, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('themes', $status);

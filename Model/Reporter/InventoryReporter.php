@@ -20,7 +20,7 @@ use StackNuts\StackGauge\Model\Reporter\Concern\DailyCadenceTrait;
  * row per product - so this counts directly against that table rather than loading a
  * stock-status collection.
  */
-final class InventoryReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
+class InventoryReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
 {
     use DailyCadenceTrait;
     use CommerceSectionTrait;
@@ -28,32 +28,55 @@ final class InventoryReporter implements ReporterInterface, DeclaresCadenceInter
     private const SCHEMA_VERSION = '1.0';
     private const METRIC_OUT_OF_STOCK = 'inventory.out_of_stock_count';
 
+    /**
+     * @param ProductCollectionFactory $productCollectionFactory
+     * @param ResourceConnection $resourceConnection
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly ProductCollectionFactory $productCollectionFactory,
-        private readonly ResourceConnection $resourceConnection
+        private readonly ResourceConnection $resourceConnection,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the inventory reporter.
+     */
     public function getName(): string
     {
         return 'inventory';
     }
 
+    /**
+     * Human-readable label for the inventory reporter block.
+     */
     public function getLabel(): string
     {
         return 'Inventory';
     }
 
+    /**
+     * One-line summary of what the inventory reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Basic inventory counts (in-stock / out-of-stock).';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports total product count plus in-stock/out-of-stock counts read from cataloginventory_stock_item.
+     */
     public function getStatus(): array
     {
         $total = $this->productCollectionFactory->create()->getSize();
@@ -66,10 +89,10 @@ final class InventoryReporter implements ReporterInterface, DeclaresCadenceInter
 
         $outOfStock = max(0, $total - $inStock);
 
-        return ['general' => Section::facts('general', 'General', $this->getDescription(), [
-            'total_products' => Field::number('Total Products', $total),
-            'in_stock' => Field::number('In Stock', $inStock),
-            'out_of_stock' => Field::trackableNumber(
+        return ['general' => $this->section->facts('general', 'General', $this->getDescription(), [
+            'total_products' => $this->field->number('Total Products', $total),
+            'in_stock' => $this->field->number('In Stock', $inStock),
+            'out_of_stock' => $this->field->trackableNumber(
                 'Out of Stock',
                 $outOfStock,
                 self::METRIC_OUT_OF_STOCK,
@@ -78,6 +101,9 @@ final class InventoryReporter implements ReporterInterface, DeclaresCadenceInter
         ])];
     }
 
+    /**
+     * Alertable metric for the inventory reporter: out-of-stock product count.
+     */
     public function getTrackableMetrics(): array
     {
         return [

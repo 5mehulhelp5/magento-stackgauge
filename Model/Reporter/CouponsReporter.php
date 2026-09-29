@@ -32,7 +32,7 @@ use StackNuts\StackGauge\Model\Reporter\Concern\DailyCadenceTrait;
  * use_auto_generation flag, so code counts are aggregated per rule_id rather than assumed to
  * be 1 (see activeRuleRows()).
  */
-final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
+class CouponsReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
 {
     use DailyCadenceTrait;
     use CommerceSectionTrait;
@@ -46,40 +46,62 @@ final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterfa
         Rule::COUPON_TYPE_AUTO => 'Auto-Generated',
     ];
 
+    /**
+     * @param ResourceConnection $resourceConnection
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly ResourceConnection $resourceConnection
+        private readonly ResourceConnection $resourceConnection,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the coupons reporter.
+     */
     public function getName(): string
     {
         return 'coupons';
     }
 
+    /**
+     * Human-readable label for the coupons reporter block.
+     */
     public function getLabel(): string
     {
         return 'Coupons';
     }
 
+    /**
+     * One-line summary of what the coupons reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Active cart price rules and their lifetime redemption counts.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the lifetime redemption total across every cart price rule via raw SQL, plus a table of active rules.
+     */
     public function getStatus(): array
     {
         return [
-            'general' => Section::facts(
+            'general' => $this->section->facts(
                 'general',
                 'General',
                 'Lifetime redemption count across every cart price rule ever created, active or not.',
                 [
-                    'total_redemptions' => Field::trackableNumber(
+                    'total_redemptions' => $this->field->trackableNumber(
                         'Total Redemptions (All Rules)',
                         $this->totalRedemptionsAllRules(),
                         self::METRIC_TOTAL_REDEMPTIONS,
@@ -87,7 +109,7 @@ final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterfa
                     ),
                 ]
             ),
-            'active_rules' => Section::table(
+            'active_rules' => $this->section->table(
                 'active_rules',
                 'Active Coupons',
                 'Cart price rules currently marked active, with their fixed code (Specific-Coupon '
@@ -98,6 +120,9 @@ final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterfa
         ];
     }
 
+    /**
+     * Alertable metric for the coupons reporter: growth in total redemptions across all rules.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -128,6 +153,8 @@ final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterfa
     }
 
     /**
+     * Builds one row per active cart price rule, with codes aggregated per rule_id (see class docblock).
+     *
      * @return list<ArrayField>
      */
     private function activeRuleRows(): array
@@ -160,26 +187,31 @@ final class CouponsReporter implements ReporterInterface, DeclaresCadenceInterfa
             $couponType = (int) $row['coupon_type'];
             $couponCount = (int) ($row['coupon_count'] ?? 0);
 
-            return Field::array((string) $row['name'], [
-                'rule_id' => Field::number('Rule ID', (int) $row['rule_id']),
-                'name' => Field::varchar('Name', (string) $row['name']),
-                'description' => Field::varchar('Description', (string) ($row['description'] ?? '')),
-                'coupon_type' => Field::varchar('Coupon Type', self::COUPON_TYPE_LABELS[$couponType] ?? 'Unknown'),
+            return $this->field->array((string) $row['name'], [
+                'rule_id' => $this->field->number('Rule ID', (int) $row['rule_id']),
+                'name' => $this->field->varchar('Name', (string) $row['name']),
+                'description' => $this->field->varchar('Description', (string) ($row['description'] ?? '')),
+                'coupon_type' => $this->field->varchar(
+                    'Coupon Type',
+                    self::COUPON_TYPE_LABELS[$couponType] ?? 'Unknown'
+                ),
                 // Only meaningful as a single "the code" when the rule has exactly one - a
                 // batch of generated codes has no one fixed code to show, just a count.
-                'code' => Field::varchar('Code', $couponCount === 1 ? (string) ($row['code'] ?? '') : ''),
-                'coupon_count' => Field::number('Coupon Codes', $couponCount),
-                'from_date' => Field::datetime('Start Date', $this->toUtcDateTime($row['from_date'])),
-                'to_date' => Field::datetime('End Date', $this->toUtcDateTime($row['to_date'])),
-                'times_used' => Field::number('Times Used', (int) $row['times_used']),
+                'code' => $this->field->varchar('Code', $couponCount === 1 ? (string) ($row['code'] ?? '') : ''),
+                'coupon_count' => $this->field->number('Coupon Codes', $couponCount),
+                'from_date' => $this->field->datetime('Start Date', $this->toUtcDateTime($row['from_date'])),
+                'to_date' => $this->field->datetime('End Date', $this->toUtcDateTime($row['to_date'])),
+                'times_used' => $this->field->number('Times Used', (int) $row['times_used']),
             ]);
         }, $rows);
     }
 
     /**
-     * from_date/to_date are plain DATE columns (no time component) - stretched to
-     * DateTimeField's "Y-m-d H:i:s" shape at midnight UTC. Null (to_date only, meaning "never
-     * expires") becomes '', DateTimeField's own convention for "never".
+     * Stretches a plain DATE column value to DateTimeField's "Y-m-d H:i:s" shape at midnight UTC.
+     *
+     * Null (to_date only, meaning "never expires") becomes '', DateTimeField's own convention for "never".
+     *
+     * @param string|null $date
      */
     private function toUtcDateTime(?string $date): string
     {

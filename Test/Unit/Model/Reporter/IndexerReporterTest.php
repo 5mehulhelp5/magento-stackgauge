@@ -15,6 +15,8 @@ use Magento\Indexer\Model\Indexer\Collection;
 use Magento\Indexer\Model\Indexer\CollectionFactory;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\IndexerReporter;
 
 class IndexerReporterTest extends TestCase
@@ -46,7 +48,12 @@ class IndexerReporterTest extends TestCase
         $factory = $this->createMock(CollectionFactory::class);
         $factory->method('create')->willReturn($collection);
 
-        return new IndexerReporter($factory, $resourceConnection ?? $this->createMock(ResourceConnection::class));
+        return new IndexerReporter(
+            $factory,
+            $resourceConnection ?? $this->createMock(ResourceConnection::class),
+            new Field(),
+            new Section()
+        );
     }
 
     public function testReportsDescriptionAndReadyStatusWithoutDuplicatingTitle(): void

@@ -18,7 +18,7 @@ class FieldTest extends TestCase
 {
     public function testBoolFieldSerializesTypeLabelAndValue(): void
     {
-        $field = Field::bool('Cron Alive', true);
+        $field = (new Field())->bool('Cron Alive', true);
 
         $this->assertSame('bool', $field->getType());
         $this->assertSame('Cron Alive', $field->getLabel());
@@ -31,55 +31,56 @@ class FieldTest extends TestCase
 
     public function testVarcharFieldStripsHtmlTags(): void
     {
-        $field = Field::varchar('Name', '<script>alert(1)</script>Magento_Catalog');
+        $field = (new Field())->varchar('Name', '<script>alert(1)</script>Magento_Catalog');
 
         $this->assertSame('alert(1)Magento_Catalog', $field->getValue());
     }
 
     public function testVarcharFieldStripsControlCharacters(): void
     {
-        $field = Field::varchar('Name', "Magento\x00_Catalog\x1F");
+        $field = (new Field())->varchar('Name', "Magento\x00_Catalog\x1F");
 
         $this->assertSame('Magento_Catalog', $field->getValue());
     }
 
     public function testVarcharFieldTruncatesToMaxLength(): void
     {
-        $field = Field::varchar('Name', str_repeat('a', VarcharField::MAX_LENGTH + 50));
+        $field = (new Field())->varchar('Name', str_repeat('a', VarcharField::MAX_LENGTH + 50));
 
         $this->assertSame(VarcharField::MAX_LENGTH, mb_strlen($field->getValue()));
     }
 
     public function testVarcharFieldLeavesOrdinaryTextUntouched(): void
     {
-        $field = Field::varchar('Version', '2.4.9');
+        $field = (new Field())->varchar('Version', '2.4.9');
 
         $this->assertSame('2.4.9', $field->getValue());
     }
 
     public function testNumberFieldAcceptsIntAndFloat(): void
     {
-        $this->assertSame(5, Field::number('Count', 5)->getValue());
-        $this->assertSame(47.9, Field::number('Percent', 47.9)->getValue());
+        $field = new Field();
+        $this->assertSame(5, $field->number('Count', 5)->getValue());
+        $this->assertSame(47.9, $field->number('Percent', 47.9)->getValue());
     }
 
     public function testNumberFieldRejectsNonFiniteFloats(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::number('Broken', NAN);
+        (new Field())->number('Broken', NAN);
     }
 
     public function testNumberFieldRejectsInfinite(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::number('Broken', INF);
+        (new Field())->number('Broken', INF);
     }
 
     public function testTrackableNumberFieldSerializesMetricKeyAndAggregation(): void
     {
-        $field = Field::trackableNumber('Free Percent', 47.9, 'disk.media.free_percent', 'latest');
+        $field = (new Field())->trackableNumber('Free Percent', 47.9, 'disk.media.free_percent', 'latest');
 
         $this->assertSame('number', $field->getType());
         $this->assertSame(47.9, $field->getValue());
@@ -101,21 +102,22 @@ class FieldTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::trackableNumber('Free Percent', 47.9, '', 'latest');
+        (new Field())->trackableNumber('Free Percent', 47.9, '', 'latest');
     }
 
     public function testTrackableNumberFieldRejectsNonFiniteFloats(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        Field::trackableNumber('Broken', NAN, 'some.metric', 'latest');
+        (new Field())->trackableNumber('Broken', NAN, 'some.metric', 'latest');
     }
 
     public function testArrayFieldAcceptsNestedFields(): void
     {
-        $field = Field::array('Module', [
-            'name' => Field::varchar('Name', 'Magento_Catalog'),
-            'enabled' => Field::bool('Enabled', true),
+        $fieldFactory = new Field();
+        $field = $fieldFactory->array('Module', [
+            'name' => $fieldFactory->varchar('Name', 'Magento_Catalog'),
+            'enabled' => $fieldFactory->bool('Enabled', true),
         ]);
 
         $this->assertSame('array', $field->getType());
@@ -128,27 +130,29 @@ class FieldTest extends TestCase
         $this->expectExceptionMessage('must be a Field instance');
 
         // @phpstan-ignore-next-line intentionally malformed for the test
-        Field::array('Broken', ['name' => 'not a field']);
+        (new Field())->array('Broken', ['name' => 'not a field']);
     }
 
     public function testArrayFieldRejectsTooManyItems(): void
     {
+        $field = new Field();
         $items = [];
         for ($i = 0; $i < ArrayField::MAX_ITEMS + 1; $i++) {
-            $items[] = Field::bool((string) $i, true);
+            $items[] = $field->bool((string) $i, true);
         }
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('exceeding the max of');
 
-        Field::array('TooMany', $items);
+        $field->array('TooMany', $items);
     }
 
     public function testArrayFieldAllowsNestingUpToMaxDepth(): void
     {
-        $field = Field::bool('leaf', true);
+        $fieldFactory = new Field();
+        $field = $fieldFactory->bool('leaf', true);
         for ($i = 1; $i < ArrayField::MAX_DEPTH; $i++) {
-            $field = Field::array("level{$i}", ['child' => $field]);
+            $field = $fieldFactory->array("level{$i}", ['child' => $field]);
         }
 
         $this->assertInstanceOf(ArrayField::class, $field);
@@ -156,14 +160,15 @@ class FieldTest extends TestCase
 
     public function testArrayFieldRejectsExcessiveNestingDepth(): void
     {
-        $field = Field::bool('leaf', true);
+        $fieldFactory = new Field();
+        $field = $fieldFactory->bool('leaf', true);
         for ($i = 1; $i <= ArrayField::MAX_DEPTH; $i++) {
-            $field = Field::array("level{$i}", ['child' => $field]);
+            $field = $fieldFactory->array("level{$i}", ['child' => $field]);
         }
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('levels deep');
 
-        Field::array('oneMoreLevel', ['child' => $field]);
+        $fieldFactory->array('oneMoreLevel', ['child' => $field]);
     }
 }

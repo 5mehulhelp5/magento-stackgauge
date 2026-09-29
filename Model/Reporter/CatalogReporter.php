@@ -33,39 +33,61 @@ class CatalogReporter implements ReporterInterface, MetricCatalogInterface, Decl
     private const SCHEMA_VERSION = '1.0';
     private const METRIC_PRODUCTS_ENABLED = 'catalog.products_enabled_count';
 
+    /**
+     * @param ProductCollectionFactory $productCollectionFactory
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly ProductCollectionFactory $productCollectionFactory
+        private readonly ProductCollectionFactory $productCollectionFactory,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the catalog reporter.
+     */
     public function getName(): string
     {
         return 'catalog';
     }
 
+    /**
+     * Human-readable label for the catalog reporter block.
+     */
     public function getLabel(): string
     {
         return 'Catalog';
     }
 
+    /**
+     * One-line summary of what the catalog reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Enabled product count.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the count of enabled products via a single COUNT(*) query on the product collection.
+     */
     public function getStatus(): array
     {
         $enabledCount = $this->productCollectionFactory->create()
             ->addAttributeToFilter('status', ['eq' => Status::STATUS_ENABLED])
             ->getSize();
 
-        return ['general' => Section::facts('general', 'General', $this->getDescription(), [
-            'products_enabled_count' => Field::trackableNumber(
+        return ['general' => $this->section->facts('general', 'General', $this->getDescription(), [
+            'products_enabled_count' => $this->field->trackableNumber(
                 'Products Enabled',
                 $enabledCount,
                 self::METRIC_PRODUCTS_ENABLED,
@@ -74,6 +96,9 @@ class CatalogReporter implements ReporterInterface, MetricCatalogInterface, Decl
         ])];
     }
 
+    /**
+     * Alertable metric for the catalog reporter: enabled product count dropping to zero.
+     */
     public function getTrackableMetrics(): array
     {
         return [

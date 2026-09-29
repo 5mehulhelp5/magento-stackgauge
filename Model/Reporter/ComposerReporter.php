@@ -38,51 +38,80 @@ class ComposerReporter implements ReporterInterface, DeclaresCadenceInterface, D
         'mage-os/framework',
     ];
 
+    /**
+     * @param ComposerLockReader $composerLockReader
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly ComposerLockReader $composerLockReader
+        private readonly ComposerLockReader $composerLockReader,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the composer reporter.
+     */
     public function getName(): string
     {
         return 'composer';
     }
 
+    /**
+     * Human-readable label for the composer reporter block.
+     */
     public function getLabel(): string
     {
         return 'Composer';
     }
 
+    /**
+     * One-line summary of what the composer reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'composer.lock hash plus a small watch-list of key platform package versions.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports a hash of composer.lock's raw contents plus the installed version of each package in KEY_PACKAGES.
+     */
     public function getStatus(): array
     {
         $contents = $this->composerLockReader->getRawContents();
 
         if ($contents === null) {
             return [
-                'general' => Section::facts('general', 'General', '', ['lock_hash' => Field::varchar('Lock Hash', '')]),
-                'key_packages' => Section::facts('key_packages', 'Key Packages', '', []),
+                'general' => $this->section->facts(
+                    'general',
+                    'General',
+                    '',
+                    ['lock_hash' => $this->field->varchar('Lock Hash', '')]
+                ),
+                'key_packages' => $this->section->facts('key_packages', 'Key Packages', '', []),
             ];
         }
 
         return [
-            'general' => Section::facts('general', 'General', '', [
-                'lock_hash' => Field::varchar('Lock Hash', 'sha256:' . hash('sha256', $contents)),
+            'general' => $this->section->facts('general', 'General', '', [
+                'lock_hash' => $this->field->varchar('Lock Hash', 'sha256:' . hash('sha256', $contents)),
             ]),
-            'key_packages' => Section::facts('key_packages', 'Key Packages', '', $this->extractKeyPackages()),
+            'key_packages' => $this->section->facts('key_packages', 'Key Packages', '', $this->extractKeyPackages()),
         ];
     }
 
     /**
+     * Resolves the installed version of each package in KEY_PACKAGES that's present in composer.lock.
+     *
      * @return array<string, \StackNuts\StackGauge\Api\Field\VarcharField>
      */
     private function extractKeyPackages(): array
@@ -93,7 +122,7 @@ class ComposerReporter implements ReporterInterface, DeclaresCadenceInterface, D
         foreach ($data['packages'] ?? [] as $package) {
             $name = $package['name'] ?? null;
             if ($name !== null && in_array($name, self::KEY_PACKAGES, true)) {
-                $keyPackages[$name] = Field::varchar($name, (string)($package['version'] ?? ''));
+                $keyPackages[$name] = $this->field->varchar($name, (string)($package['version'] ?? ''));
             }
         }
 

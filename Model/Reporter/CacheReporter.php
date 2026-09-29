@@ -35,32 +35,55 @@ class CacheReporter implements ReporterInterface, DeclaresSectionInterface
      */
     private const CRITICAL_STATUSES = [self::STATUS_DISABLED, self::STATUS_INVALIDATED];
 
+    /**
+     * @param TypeListInterface $cacheTypeList
+     * @param PageCacheConfig $pageCacheConfig
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly TypeListInterface $cacheTypeList,
-        private readonly PageCacheConfig $pageCacheConfig
+        private readonly PageCacheConfig $pageCacheConfig,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the cache reporter.
+     */
     public function getName(): string
     {
         return 'cache';
     }
 
+    /**
+     * Human-readable label for the cache reporter block.
+     */
     public function getLabel(): string
     {
         return 'Cache';
     }
 
+    /**
+     * One-line summary of what the cache reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Per-cache-type name/description/tags/status, plus which Full Page Cache type is active.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports each cache type's enabled/invalidated status via TypeListInterface, plus which Full Page Cache backend is active via PageCacheConfig.
+     */
     public function getStatus(): array
     {
         $types = [];
@@ -73,23 +96,23 @@ class CacheReporter implements ReporterInterface, DeclaresSectionInterface
                 default => self::STATUS_DISABLED,
             };
 
-            $types[] = Field::array((string)$id, [
-                'id' => Field::varchar('ID', (string)$id),
-                'name' => Field::varchar('Name', (string)($info['cache_type'] ?? $id)),
-                'description' => Field::varchar('Description', (string)($info['description'] ?? '')),
-                'tags' => Field::varchar('Tags', (string)($info['tags'] ?? '')),
-                'status' => Field::varchar('Status', $status, self::CRITICAL_STATUSES),
+            $types[] = $this->field->array((string)$id, [
+                'id' => $this->field->varchar('ID', (string)$id),
+                'name' => $this->field->varchar('Name', (string)($info['cache_type'] ?? $id)),
+                'description' => $this->field->varchar('Description', (string)($info['description'] ?? '')),
+                'tags' => $this->field->varchar('Tags', (string)($info['tags'] ?? '')),
+                'status' => $this->field->varchar('Status', $status, self::CRITICAL_STATUSES),
             ]);
         }
 
         return [
-            'full_page_cache' => Section::facts(
+            'full_page_cache' => $this->section->facts(
                 'full_page_cache',
                 'Full Page Cache',
                 'Which Full Page Cache type is active.',
                 $this->getFullPageCacheStatus()
             ),
-            'types' => Section::table('types', 'Cache Types', '', $types, keyName: 'id'),
+            'types' => $this->section->table('types', 'Cache Types', '', $types, keyName: 'id'),
         ];
     }
 
@@ -111,9 +134,9 @@ class CacheReporter implements ReporterInterface, DeclaresSectionInterface
         };
 
         return [
-            'enabled' => Field::bool('Enabled', $this->pageCacheConfig->isEnabled(), criticalWhen: false),
-            'type_id' => Field::number('Type ID', $typeId),
-            'type_label' => Field::varchar('Type Label', $typeLabel),
+            'enabled' => $this->field->bool('Enabled', $this->pageCacheConfig->isEnabled(), criticalWhen: false),
+            'type_id' => $this->field->number('Type ID', $typeId),
+            'type_label' => $this->field->varchar('Type Label', $typeLabel),
         ];
     }
 }

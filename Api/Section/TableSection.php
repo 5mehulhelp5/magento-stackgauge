@@ -26,7 +26,7 @@ use StackNuts\StackGauge\Api\Field\ArrayField;
  * that name, is used only to catch a reporter bug (two rows sharing the same name) here at
  * the source - it plays no part in the wire shape, which is always an ordered list of rows.
  */
-final class TableSection implements SectionInterface
+class TableSection implements SectionInterface
 {
     /**
      * @var list<ArrayField>
@@ -39,7 +39,11 @@ final class TableSection implements SectionInterface
     private readonly array $columns;
 
     /**
-     * @param array<int, ArrayField> $rows
+     * @param string $key
+     * @param string $label
+     * @param string $description
+     * @param array<int,ArrayField> $rows
+     * @param string $keyName
      */
     public function __construct(
         private readonly string $key,
@@ -111,6 +115,11 @@ final class TableSection implements SectionInterface
         $this->assertKeyColumnIsUnique();
     }
 
+    /**
+     * Throws if two rows share the same value in the $keyName column.
+     *
+     * See this class's own docblock for what $keyName is for.
+     */
     private function assertKeyColumnIsUnique(): void
     {
         $seen = [];
@@ -141,27 +150,41 @@ final class TableSection implements SectionInterface
         }
     }
 
+    /**
+     * The key passed to the constructor.
+     */
     public function getKey(): string
     {
         return $this->key;
     }
 
+    /**
+     * Always Section::KIND_TABLE.
+     */
     public function getKind(): string
     {
         return Section::KIND_TABLE;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The description passed to the constructor.
+     */
     public function getDescription(): string
     {
         return $this->description;
     }
 
     /**
+     * Every row, in order.
+     *
      * @return list<ArrayField>
      */
     public function getRows(): array
@@ -170,6 +193,8 @@ final class TableSection implements SectionInterface
     }
 
     /**
+     * Column definitions derived from the first row - see this class's own docblock.
+     *
      * @return list<array{key: string, label: string}>
      */
     public function getColumns(): array
@@ -177,6 +202,9 @@ final class TableSection implements SectionInterface
         return $this->columns;
     }
 
+    /**
+     * Wire representation of this section.
+     */
     public function jsonSerialize(): array
     {
         return [

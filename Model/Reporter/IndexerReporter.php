@@ -66,32 +66,55 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
      */
     private const CRITICAL_STATUS_LABELS = ['Reindex required', 'Suspended'];
 
+    /**
+     * @param CollectionFactory $indexerCollectionFactory
+     * @param ResourceConnection $resourceConnection
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly CollectionFactory $indexerCollectionFactory,
-        private readonly ResourceConnection $resourceConnection
+        private readonly ResourceConnection $resourceConnection,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the indexers reporter.
+     */
     public function getName(): string
     {
         return 'indexers';
     }
 
+    /**
+     * Human-readable label for the indexers reporter block.
+     */
     public function getLabel(): string
     {
         return 'Indexers';
     }
 
+    /**
+     * One-line summary of what the indexers reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Per-indexer status, mode, and (for schedule-mode indexers) pending changelog backlog.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports each indexer's status, mode, and schedule backlog, plus the worst backlog count across all of them.
+     */
     public function getStatus(): array
     {
         $indexers = [];
@@ -102,32 +125,32 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
             $schedule = $scheduled ? $this->scheduleStatus($indexer) : ['label' => '', 'count' => 0];
             $maxBacklog = max($maxBacklog, $schedule['count']);
 
-            $indexers[] = Field::array((string)$indexer->getId(), [
-                'id' => Field::varchar('ID', (string)$indexer->getId()),
-                'title' => Field::varchar('Title', (string)$indexer->getTitle()),
-                'description' => Field::varchar('Description', (string)$indexer->getDescription()),
-                'status' => Field::varchar(
+            $indexers[] = $this->field->array((string)$indexer->getId(), [
+                'id' => $this->field->varchar('ID', (string)$indexer->getId()),
+                'title' => $this->field->varchar('Title', (string)$indexer->getTitle()),
+                'description' => $this->field->varchar('Description', (string)$indexer->getDescription()),
+                'status' => $this->field->varchar(
                     'Status',
                     self::STATUS_LABELS[$indexer->getStatus()] ?? $indexer->getStatus(),
                     self::CRITICAL_STATUS_LABELS
                 ),
-                'mode' => Field::varchar('Mode', $scheduled ? 'schedule' : 'save'),
-                'schedule_status' => Field::varchar(
+                'mode' => $this->field->varchar('Mode', $scheduled ? 'schedule' : 'save'),
+                'schedule_status' => $this->field->varchar(
                     'Schedule Status',
                     $schedule['label'],
                     severity: $scheduled ? $this->backlogSeverity($schedule['count']) : null
                 ),
-                'updated_at' => Field::datetime('Updated At', (string)$indexer->getLatestUpdated()),
+                'updated_at' => $this->field->datetime('Updated At', (string)$indexer->getLatestUpdated()),
             ]);
         }
 
         return [
-            'general' => Section::facts(
+            'general' => $this->section->facts(
                 'general',
                 'General',
                 'Worst pending changelog backlog across every schedule-mode indexer.',
                 [
-                    'max_backlog_count' => Field::trackableNumber(
+                    'max_backlog_count' => $this->field->trackableNumber(
                         'Max Backlog',
                         $maxBacklog,
                         self::METRIC_MAX_BACKLOG_COUNT,
@@ -135,10 +158,13 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
                     ),
                 ]
             ),
-            'indexers' => Section::table('indexers', 'Indexer Status', '', $indexers, keyName: 'id'),
+            'indexers' => $this->section->table('indexers', 'Indexer Status', '', $indexers, keyName: 'id'),
         ];
     }
 
+    /**
+     * Alertable metric for the indexers reporter: worst pending changelog backlog across all indexers.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -159,6 +185,7 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
      * Swallows failures (e.g. a custom indexer whose changelog table doesn't exist) so one
      * indexer's failure doesn't blank out the others.
      *
+     * @param IndexerInterface $indexer
      * @return array{label: string, count: int}
      */
     private function scheduleStatus(IndexerInterface $indexer): array
@@ -183,6 +210,11 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
         }
     }
 
+    /**
+     * Maps a backlog count to a display severity using BACKLOG_WARNING_THRESHOLD/BACKLOG_CRITICAL_THRESHOLD.
+     *
+     * @param int $count
+     */
     private function backlogSeverity(int $count): string
     {
         return match (true) {

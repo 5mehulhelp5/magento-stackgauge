@@ -16,6 +16,9 @@ use StackNuts\StackGauge\Api\DeclaresSectionInterface;
  */
 trait CommerceSectionTrait
 {
+    /**
+     * Always DeclaresSectionInterface::SECTION_COMMERCE.
+     */
     public function getSection(): string
     {
         return DeclaresSectionInterface::SECTION_COMMERCE;

@@ -22,52 +22,111 @@ use StackNuts\StackGauge\Model\System\Config\Source\LogLevel;
  */
 class Logger implements LoggerInterface
 {
+    /**
+     * @param LoggerInterface $writer
+     * @param Config $config
+     */
     public function __construct(
         private readonly LoggerInterface $writer,
         private readonly Config $config
     ) {
     }
 
+    /**
+     * Logs an EMERGENCY-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function emergency(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::EMERGENCY, $message, $context);
     }
 
+    /**
+     * Logs an ALERT-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function alert(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::ALERT, $message, $context);
     }
 
+    /**
+     * Logs a CRITICAL-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function critical(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::CRITICAL, $message, $context);
     }
 
+    /**
+     * Logs an ERROR-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function error(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::ERROR, $message, $context);
     }
 
+    /**
+     * Logs a WARNING-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function warning(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::WARNING, $message, $context);
     }
 
+    /**
+     * Logs a NOTICE-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function notice(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::NOTICE, $message, $context);
     }
 
+    /**
+     * Logs an INFO-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function info(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::INFO, $message, $context);
     }
 
+    /**
+     * Logs a DEBUG-level message, subject to the configured log level.
+     *
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function debug(string|\Stringable $message, array $context = []): void
     {
         $this->log(MonologLogger::DEBUG, $message, $context);
     }
 
+    /**
+     * Logs a message at an arbitrary level, subject to the configured log level.
+     *
+     * @param mixed $level
+     * @param string|\Stringable $message
+     * @param array $context
+     */
     public function log($level, string|\Stringable $message, array $context = []): void
     {
         if (!is_int($level) || !$this->shouldLog($level)) {
@@ -77,6 +136,11 @@ class Logger implements LoggerInterface
         $this->writer->log($level, $message, $context);
     }
 
+    /**
+     * Whether the admin-configured log level allows $level through.
+     *
+     * @param int $level
+     */
     private function shouldLog(int $level): bool
     {
         $configuredLevel = $this->config->getLogLevel();

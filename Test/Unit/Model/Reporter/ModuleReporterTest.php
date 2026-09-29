@@ -9,10 +9,13 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 use Magento\Framework\Component\ComponentRegistrar;
+use Magento\Framework\Filesystem\Driver\File;
 use Magento\Framework\Module\FullModuleList;
 use Magento\Framework\Module\ModuleListInterface;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\ModuleReporter;
 use StackNuts\StackGauge\Model\Util\ComposerLockReader;
 
@@ -48,7 +51,16 @@ class ModuleReporterTest extends TestCase
         $composerLockReader = $this->createStub(ComposerLockReader::class);
         $composerLockReader->method('getDecoded')->willReturn(['packages' => []]);
 
-        $reporter = new ModuleReporter($fullModuleList, $enabledModuleList, $componentRegistrar, new Json(), $composerLockReader);
+        $reporter = new ModuleReporter(
+            $fullModuleList,
+            $enabledModuleList,
+            $componentRegistrar,
+            new Json(),
+            $composerLockReader,
+            new File(),
+            new Field(),
+            new Section()
+        );
         $rows = $reporter->getStatus()['modules']->getRows();
 
         $fields = $this->fieldsFor($rows, 'Magento_Catalog');
@@ -71,7 +83,16 @@ class ModuleReporterTest extends TestCase
         $composerLockReader = $this->createStub(ComposerLockReader::class);
         $composerLockReader->method('getDecoded')->willReturn(null);
 
-        $reporter = new ModuleReporter($fullModuleList, $enabledModuleList, $componentRegistrar, new Json(), $composerLockReader);
+        $reporter = new ModuleReporter(
+            $fullModuleList,
+            $enabledModuleList,
+            $componentRegistrar,
+            new Json(),
+            $composerLockReader,
+            new File(),
+            new Field(),
+            new Section()
+        );
         $rows = $reporter->getStatus()['modules']->getRows();
 
         $fields = $this->fieldsFor($rows, 'Acme_Foo');

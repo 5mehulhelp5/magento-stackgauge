@@ -23,6 +23,12 @@ class PayloadBuilder
     private const SCHEMA_VERSION = '1.0';
     private const MODULE_NAME = 'StackNuts_StackGauge';
 
+    /**
+     * @param ReporterPool $reporterPool
+     * @param MetricCatalogPool $metricCatalogPool
+     * @param Config $config
+     * @param ModuleListInterface $moduleList
+     */
     public function __construct(
         private readonly ReporterPool $reporterPool,
         private readonly MetricCatalogPool $metricCatalogPool,
@@ -32,6 +38,9 @@ class PayloadBuilder
     }
 
     /**
+     * The full-collection report envelope for the given cadence tier.
+     *
+     * @param string $cadence One of Api\DeclaresCadenceInterface::CADENCE_*.
      * @return array<string, mixed>
      */
     public function build(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
@@ -73,6 +82,9 @@ class PayloadBuilder
         ];
     }
 
+    /**
+     * This module's own setup_version, or null if the module isn't registered.
+     */
     private function getModuleVersion(): ?string
     {
         $module = $this->moduleList->getOne(self::MODULE_NAME);

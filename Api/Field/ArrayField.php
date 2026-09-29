@@ -18,13 +18,14 @@ use InvalidArgumentException;
  * exceeding MAX_DEPTH or MAX_ITEMS throws, which ReporterPool treats exactly like any other
  * reporter failure (an {"error": ...} block, not a broken payload).
  */
-final class ArrayField implements FieldInterface
+class ArrayField implements FieldInterface
 {
     public const MAX_DEPTH = 4;
     public const MAX_ITEMS = 500;
 
     /**
-     * @param array<int|string, FieldInterface> $value
+     * @param string $label
+     * @param array<int|string,FieldInterface> $value
      */
     public function __construct(
         private readonly string $label,
@@ -53,17 +54,25 @@ final class ArrayField implements FieldInterface
         }
     }
 
+    /**
+     * Always Field::TYPE_ARRAY.
+     */
     public function getType(): string
     {
         return Field::TYPE_ARRAY;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
     /**
+     * The items making up this array field, keyed the same way they were constructed with.
+     *
      * @return array<int|string, FieldInterface>
      */
     public function getValue(): array
@@ -71,6 +80,9 @@ final class ArrayField implements FieldInterface
         return $this->value;
     }
 
+    /**
+     * Nesting depth of this array field, computed bottom-up from the actual child values.
+     */
     private function depth(): int
     {
         $maxChildDepth = 0;
@@ -83,6 +95,11 @@ final class ArrayField implements FieldInterface
         return 1 + $maxChildDepth;
     }
 
+    /**
+     * Wire representation of this field.
+     *
+     * @return array{type: string, label: string, value: array<int|string,FieldInterface>}
+     */
     public function jsonSerialize(): array
     {
         return ['type' => $this->getType(), 'label' => $this->label, 'value' => $this->value];

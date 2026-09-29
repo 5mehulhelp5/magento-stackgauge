@@ -35,58 +35,93 @@ class CoreReporter implements ReporterInterface, DeclaresSectionInterface
         'mage-os/framework',
     ];
 
+    /**
+     * @param ProductMetadataInterface $productMetadata
+     * @param State $appState
+     * @param Filesystem $filesystem
+     * @param ComposerLockReader $composerLockReader
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly ProductMetadataInterface $productMetadata,
         private readonly State $appState,
         private readonly Filesystem $filesystem,
-        private readonly ComposerLockReader $composerLockReader
+        private readonly ComposerLockReader $composerLockReader,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the core reporter.
+     */
     public function getName(): string
     {
         return 'core';
     }
 
+    /**
+     * Human-readable label for the core reporter block.
+     */
     public function getLabel(): string
     {
         return 'Core';
     }
 
+    /**
+     * One-line summary of what the core reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Edition, version, PHP version, deployment mode, and static content deploy state.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the store's edition, Magento version, PHP version, deployment mode, and static content deploy state.
+     */
     public function getStatus(): array
     {
         return [
-            'general' => Section::facts('general', 'General', $this->getDescription(), [
-                'edition' => Field::varchar('Edition', $this->detectEdition()),
-                'version' => Field::varchar('Magento Version', $this->productMetadata->getVersion()),
-                'php_version' => Field::varchar('PHP Version', PHP_VERSION),
+            'general' => $this->section->facts('general', 'General', $this->getDescription(), [
+                'edition' => $this->field->varchar('Edition', $this->detectEdition()),
+                'version' => $this->field->varchar('Magento Version', $this->productMetadata->getVersion()),
+                'php_version' => $this->field->varchar('PHP Version', PHP_VERSION),
                 // Visual-only flag, not an alert - too many legitimately-staged sites run
                 // developer mode intentionally for this to be a useful page-someone signal.
-                'deployment_mode' => Field::varchar(
+                'deployment_mode' => $this->field->varchar(
                     'Deployment Mode',
                     $this->appState->getMode(),
                     [State::MODE_DEVELOPER]
                 ),
-                'static_content_deployed' => Field::bool('Static Content Deployed', $this->isStaticContentDeployed(), criticalWhen: false),
+                'static_content_deployed' => $this->field->bool(
+                    'Static Content Deployed',
+                    $this->isStaticContentDeployed(),
+                    criticalWhen: false
+                ),
             ]),
         ];
     }
 
+    /**
+     * Resolves the edition label, substituting "Mage-OS" for ProductMetadataInterface's "Community" when applicable.
+     */
     private function detectEdition(): string
     {
         return $this->isMageOs() ? 'Mage-OS' : $this->productMetadata->getEdition();
     }
 
+    /**
+     * Whether composer.lock shows a Mage-OS package instead of a vanilla Magento Open Source one.
+     */
     private function isMageOs(): bool
     {
         $data = $this->composerLockReader->getDecoded();

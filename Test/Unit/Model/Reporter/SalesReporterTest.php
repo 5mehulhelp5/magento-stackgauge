@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Magento\Framework\DB\Select;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\SalesReporter;
 use StackNuts\StackGauge\Model\Util\Clock;
 
@@ -37,7 +39,7 @@ class SalesReporterTest extends TestCase
         // instead of fetchOne().
         $connection->method('fetchAll')->willReturn([]);
 
-        $reporter = new SalesReporter($resource, new Clock());
+        $reporter = new SalesReporter($resource, new Clock(), new Field(), new Section());
 
         $status = $reporter->getStatus();
         $fields = $status['general']->getFields();
@@ -71,7 +73,7 @@ class SalesReporterTest extends TestCase
             ['hour_bucket' => $hour, 'cnt' => '3', 'revenue' => '123.45'],
         ]);
 
-        $reporter = new SalesReporter($resource, new Clock());
+        $reporter = new SalesReporter($resource, new Clock(), new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('orders_hourly', $status);

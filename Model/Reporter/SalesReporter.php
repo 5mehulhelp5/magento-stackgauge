@@ -38,50 +38,73 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
 
     private const HOURLY_WINDOW_HOURS = 24;
 
+    /**
+     * @param ResourceConnection $resourceConnection
+     * @param Clock $clock
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly ResourceConnection $resourceConnection,
-        private readonly Clock $clock
+        private readonly Clock $clock,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the sales reporter.
+     */
     public function getName(): string
     {
         return 'sales';
     }
 
+    /**
+     * Human-readable label for the sales reporter block.
+     */
     public function getLabel(): string
     {
         return 'Sales';
     }
 
+    /**
+     * One-line summary of what the sales reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Lifetime order/quote counts, plus hourly order counts and revenue for the recent window.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports lifetime order and quote-with-items counts, plus an hourly order count/revenue breakdown.
+     */
     public function getStatus(): array
     {
         return [
-            'general' => Section::facts('general', 'General', 'Lifetime order/quote counts.', [
-                'orders_lifetime_count' => Field::trackableNumber(
+            'general' => $this->section->facts('general', 'General', 'Lifetime order/quote counts.', [
+                'orders_lifetime_count' => $this->field->trackableNumber(
                     'Orders (Lifetime)',
                     $this->count('sales_order'),
                     self::METRIC_ORDERS_LIFETIME,
                     MetricDefinition::AGGREGATION_DELTA
                 ),
-                'quotes_with_items_lifetime_count' => Field::trackableNumber(
+                'quotes_with_items_lifetime_count' => $this->field->trackableNumber(
                     'Quotes With Items (Lifetime)',
                     $this->count('quote', 'items_count > 0'),
                     self::METRIC_QUOTES_WITH_ITEMS_LIFETIME,
                     MetricDefinition::AGGREGATION_DELTA
                 ),
             ]),
-            'orders_hourly' => Section::table(
+            'orders_hourly' => $this->section->table(
                 'orders_hourly',
                 'Orders (hourly)',
                 'Hourly order counts and revenue for the recent window.',
@@ -91,6 +114,9 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
         ];
     }
 
+    /**
+     * Alertable metrics for the sales reporter: lifetime order and quote-with-items growth.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -117,6 +143,9 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
      * Deliberately does not catch failures here - a query failure should surface as this
      * whole reporter's block becoming {"error": ...} via ReporterPool's own error isolation,
      * not silently report "0" as if that were a real (and highly alertable) order count.
+     *
+     * @param string $table
+     * @param string|null $where
      */
     private function count(string $table, ?string $where = null): int
     {
@@ -134,6 +163,8 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
     }
 
     /**
+     * Builds one row per hour in the recent window, zero-filled for hours with no orders.
+     *
      * @return list<ArrayField>
      */
     private function hourlyBuckets(): array
@@ -173,10 +204,10 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
 
         $rows = [];
         foreach (array_values($buckets) as $bucket) {
-            $rows[] = Field::array($bucket['hour'], [
-                'hour' => Field::datetime('Hour', $bucket['hour']),
-                'count' => Field::number('Count', $bucket['count']),
-                'revenue' => Field::number('Revenue', $bucket['revenue']),
+            $rows[] = $this->field->array($bucket['hour'], [
+                'hour' => $this->field->datetime('Hour', $bucket['hour']),
+                'count' => $this->field->number('Count', $bucket['count']),
+                'revenue' => $this->field->number('Revenue', $bucket['revenue']),
             ]);
         }
 

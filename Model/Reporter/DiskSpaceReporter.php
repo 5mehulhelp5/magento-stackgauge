@@ -10,6 +10,7 @@ namespace StackNuts\StackGauge\Model\Reporter;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
+use Magento\Framework\Filesystem\Driver\File;
 use StackNuts\StackGauge\Api\DeclaresSectionInterface;
 use StackNuts\StackGauge\Api\Field\ArrayField;
 use StackNuts\StackGauge\Api\Field\Field;
@@ -57,31 +58,55 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
         'media' => 'Media',
     ];
 
+    /**
+     * @param Filesystem $filesystem
+     * @param File $filesystemDriver
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly Filesystem $filesystem
+        private readonly Filesystem $filesystem,
+        private readonly File $filesystemDriver,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the disk-space reporter.
+     */
     public function getName(): string
     {
         return 'disk';
     }
 
+    /**
+     * Human-readable label for the disk-space reporter block.
+     */
     public function getLabel(): string
     {
         return 'Disk Space';
     }
 
+    /**
+     * One-line summary of what the disk-space reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Free/total bytes for var/log, var/cache, and media, checked independently.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports free/total bytes and free percent for the var/log, var/cache, and media volumes.
+     */
     public function getStatus(): array
     {
         $volumes = [];
@@ -90,9 +115,12 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
             $volumes[] = $this->checkVolume($purpose, $directoryCode);
         }
 
-        return ['volumes' => Section::table('volumes', 'Volumes', $this->getDescription(), $volumes)];
+        return ['volumes' => $this->section->table('volumes', 'Volumes', $this->getDescription(), $volumes)];
     }
 
+    /**
+     * Alertable metric for the disk-space reporter: media volume free space dropping too low.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -107,10 +135,24 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
         ];
     }
 
+    /**
+     * Reads free/total space for one volume and builds its row, treating any failure as unmeasurable.
+     *
+     * @param string $purpose
+     * @param string $directoryCode
+     */
     private function checkVolume(string $purpose, string $directoryCode): ArrayField
     {
         try {
             $path = $this->filesystem->getDirectoryRead($directoryCode)->getAbsolutePath();
+
+            if (!$this->filesystemDriver->isDirectory($path)) {
+                // disk_free_space()/disk_total_space() emit a PHP warning (not just a false
+                // return) for a nonexistent path - e.g. var/cache never gets provisioned on
+                // disk at all when a site uses an external cache backend like Redis.
+                return $this->volumeField($purpose, false, 0, 0, 0.0);
+            }
+
             $free = disk_free_space($path);
             $total = disk_total_space($path);
 
@@ -124,6 +166,15 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
         }
     }
 
+    /**
+     * Builds one volume's row, wiring the media volume's free-percent field to the trackable metric.
+     *
+     * @param string $purpose
+     * @param bool $measurable
+     * @param int $freeBytes
+     * @param int $totalBytes
+     * @param float $freePercent
+     */
     private function volumeField(
         string $purpose,
         bool $measurable,
@@ -139,21 +190,21 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
             : null;
 
         $freePercentField = $purpose === 'media'
-            ? Field::trackableNumber(
+            ? $this->field->trackableNumber(
                 'Free Percent',
                 $freePercent,
                 self::METRIC_MEDIA_FREE_PERCENT,
                 MetricDefinition::AGGREGATION_LATEST,
                 $severity
             )
-            : Field::number('Free Percent', $freePercent, $severity);
+            : $this->field->number('Free Percent', $freePercent, $severity);
 
-        return Field::array($purpose, [
-            'name' => Field::varchar('Name', $purpose),
-            'purpose' => Field::varchar('Purpose', self::PURPOSES[$purpose] ?? $purpose),
-            'measurable' => Field::bool('Measurable', $measurable),
-            'free_bytes' => Field::number('Free Bytes', $freeBytes),
-            'total_bytes' => Field::number('Total Bytes', $totalBytes),
+        return $this->field->array($purpose, [
+            'name' => $this->field->varchar('Name', $purpose),
+            'purpose' => $this->field->varchar('Purpose', self::PURPOSES[$purpose] ?? $purpose),
+            'measurable' => $this->field->bool('Measurable', $measurable),
+            'free_bytes' => $this->field->number('Free Bytes', $freeBytes),
+            'total_bytes' => $this->field->number('Total Bytes', $totalBytes),
             'free_percent' => $freePercentField,
         ]);
     }

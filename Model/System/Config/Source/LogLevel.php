@@ -15,6 +15,9 @@ class LogLevel implements OptionSourceInterface
 {
     public const LEVEL_OFF = 0;
 
+    /**
+     * Options for the admin "Log Level" select.
+     */
     public function toOptionArray(): array
     {
         return [

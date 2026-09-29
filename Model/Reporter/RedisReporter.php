@@ -37,31 +37,53 @@ class RedisReporter implements ReporterInterface, DeclaresSectionInterface
      */
     private const CONNECT_TIMEOUT_SECONDS = 2.0;
 
+    /**
+     * @param DeploymentConfig $deploymentConfig
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly DeploymentConfig $deploymentConfig
+        private readonly DeploymentConfig $deploymentConfig,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the Redis reporter.
+     */
     public function getName(): string
     {
         return 'redis';
     }
 
+    /**
+     * Human-readable label for the Redis reporter block.
+     */
     public function getLabel(): string
     {
         return 'Redis';
     }
 
+    /**
+     * One-line summary of what the Redis reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Reachability and version of Redis-backed cache and session backends, checked separately.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports reachability and version for each Redis-backed cache frontend and the session backend, via Credis_Client.
+     */
     public function getStatus(): array
     {
         $backends = [];
@@ -81,11 +103,17 @@ class RedisReporter implements ReporterInterface, DeclaresSectionInterface
             $backends[] = $this->checkBackend('session', 'Session Store', (array)($session['redis'] ?? []));
         }
 
-        return ['backends' => Section::table('backends', 'Backend Types', $this->getDescription(), $backends)];
+        return [
+            'backends' => $this->section->table('backends', 'Backend Types', $this->getDescription(), $backends),
+        ];
     }
 
     /**
-     * @param array<string, mixed> $options
+     * Connects to one Redis backend with a short timeout and builds its reachability/version row.
+     *
+     * @param string $name
+     * @param string $purpose
+     * @param array<string,mixed> $options
      */
     private function checkBackend(string $name, string $purpose, array $options): ArrayField
     {
@@ -109,13 +137,21 @@ class RedisReporter implements ReporterInterface, DeclaresSectionInterface
         }
     }
 
+    /**
+     * Builds one backend's row.
+     *
+     * @param string $name
+     * @param string $purpose
+     * @param bool $reachable
+     * @param string|null $version
+     */
     private function backendField(string $name, string $purpose, bool $reachable, ?string $version): ArrayField
     {
-        return Field::array($name, [
-            'name' => Field::varchar('Name', $name),
-            'purpose' => Field::varchar('Purpose', $purpose),
-            'reachable' => Field::bool('Reachable', $reachable, criticalWhen: false),
-            'version' => Field::varchar('Version', $version ?? ''),
+        return $this->field->array($name, [
+            'name' => $this->field->varchar('Name', $name),
+            'purpose' => $this->field->varchar('Purpose', $purpose),
+            'reachable' => $this->field->bool('Reachable', $reachable, criticalWhen: false),
+            'version' => $this->field->varchar('Version', $version ?? ''),
         ]);
     }
 }

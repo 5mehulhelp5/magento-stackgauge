@@ -19,5 +19,8 @@ interface DeclaresCadenceInterface
     public const CADENCE_HOURLY = 'hourly';
     public const CADENCE_DAILY = 'daily';
 
+    /**
+     * One of self::CADENCE_* - which collection cadence this reporter should run on.
+     */
     public function getCadence(): string;
 }

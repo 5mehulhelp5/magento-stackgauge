@@ -6,6 +6,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use PHPUnit\Framework\TestCase;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
 use Magento\Catalog\Model\ResourceModel\Product\Collection as ProductCollection;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\ProductHealthReporter;
 
 class ProductHealthReporterTest extends TestCase
@@ -23,7 +25,7 @@ class ProductHealthReporterTest extends TestCase
         $factory = $this->createMock(ProductCollectionFactory::class);
         $factory->method('create')->willReturnOnConsecutiveCalls($col1, $col2);
 
-        $reporter = new ProductHealthReporter($factory);
+        $reporter = new ProductHealthReporter($factory, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('general', $status);

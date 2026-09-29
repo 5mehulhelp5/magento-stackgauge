@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Api\Field;
 
 use InvalidArgumentException;
+use StackNuts\StackGauge\Api\Field\Concern\ValidatesSeverityTrait;
 
 /**
  * A NumberField whose value is also tracked over time for alerting - carries a stable
@@ -16,12 +17,25 @@ use InvalidArgumentException;
  * aggregation used to combine multiple samples of it over a time window. getType() still
  * returns "number", so a consumer that doesn't care about alerting can ignore the extra
  * metric_key/aggregation keys and render it like any other number field. Implements
- * FieldInterface directly rather than extending NumberField, which is final.
+ * FieldInterface directly rather than extending NumberField, since the two only share a
+ * getType() return value and composing that is simpler than inheriting from it.
  */
-final class TrackableNumberField implements FieldInterface
+class TrackableNumberField implements FieldInterface
 {
+    use ValidatesSeverityTrait;
+
+    /**
+     * @var int|float
+     */
     private readonly int|float $value;
 
+    /**
+     * @param string $label
+     * @param int|float $value
+     * @param string $metricKey Must match a MetricDefinition this reporter declares via getTrackableMetrics().
+     * @param string $aggregation One of MetricDefinition::AGGREGATION_*.
+     * @param string|null $severity Same optional coloring hint as NumberField's.
+     */
     public function __construct(
         private readonly string $label,
         int|float $value,
@@ -37,36 +51,63 @@ final class TrackableNumberField implements FieldInterface
             throw new InvalidArgumentException("Trackable number field \"{$label}\" needs a non-empty metric_key.");
         }
 
-        Field::assertValidSeverity('Trackable number', $label, $severity);
+        $this->assertValidSeverity('Trackable number', $label, $severity);
 
         $this->value = $value;
     }
 
+    /**
+     * Always Field::TYPE_NUMBER - see this class's own docblock for why.
+     */
     public function getType(): string
     {
         return Field::TYPE_NUMBER;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The value passed to the constructor.
+     */
     public function getValue(): int|float
     {
         return $this->value;
     }
 
+    /**
+     * The metric_key passed to the constructor.
+     */
     public function getMetricKey(): string
     {
         return $this->metricKey;
     }
 
+    /**
+     * The aggregation passed to the constructor.
+     */
     public function getAggregation(): string
     {
         return $this->aggregation;
     }
 
+    /**
+     * Wire representation of this field.
+     *
+     * @return array{
+     *     type: string,
+     *     label: string,
+     *     value: int|float,
+     *     metric_key: string,
+     *     aggregation: string,
+     *     severity?: string
+     * }
+     */
     public function jsonSerialize(): array
     {
         $data = [

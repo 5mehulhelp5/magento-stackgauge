@@ -12,6 +12,8 @@ use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\ReportReporter;
 
 class ReportReporterTest extends TestCase
@@ -23,7 +25,7 @@ class ReportReporterTest extends TestCase
         $filesystem->method('getDirectoryRead')->with(DirectoryList::VAR_DIR)->willReturn($varDir);
         $varDir->method('isExist')->willReturn(false);
 
-        $reporter = new ReportReporter($filesystem);
+        $reporter = new ReportReporter($filesystem, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('reports', $status);

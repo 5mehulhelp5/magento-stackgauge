@@ -16,6 +16,9 @@ use StackNuts\StackGauge\Api\DeclaresSectionInterface;
  */
 trait PlatformSectionTrait
 {
+    /**
+     * Always DeclaresSectionInterface::SECTION_PLATFORM.
+     */
     public function getSection(): string
     {
         return DeclaresSectionInterface::SECTION_PLATFORM;

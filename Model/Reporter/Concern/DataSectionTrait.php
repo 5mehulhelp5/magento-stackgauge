@@ -15,6 +15,9 @@ use StackNuts\StackGauge\Api\DeclaresSectionInterface;
  */
 trait DataSectionTrait
 {
+    /**
+     * Always DeclaresSectionInterface::SECTION_DATA.
+     */
     public function getSection(): string
     {
         return DeclaresSectionInterface::SECTION_DATA;

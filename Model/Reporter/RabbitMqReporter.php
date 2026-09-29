@@ -34,33 +34,57 @@ class RabbitMqReporter implements ReporterInterface, DeclaresSectionInterface
     private const SCHEMA_VERSION = '1.0';
     private const AMQP_CONNECTION = 'amqp';
 
+    /**
+     * @param DeploymentConfig $deploymentConfig
+     * @param TopologyConfigInterface $topologyConfig
+     * @param AmqpConfig $amqpConfig
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly DeploymentConfig $deploymentConfig,
         private readonly TopologyConfigInterface $topologyConfig,
-        private readonly AmqpConfig $amqpConfig
+        private readonly AmqpConfig $amqpConfig,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the RabbitMQ reporter.
+     */
     public function getName(): string
     {
         return 'rabbitmq';
     }
 
+    /**
+     * Human-readable label for the RabbitMQ reporter block.
+     */
     public function getLabel(): string
     {
         return 'RabbitMQ';
     }
 
+    /**
+     * One-line summary of what the RabbitMQ reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Per-queue message/consumer count for every queue routed through the "amqp" connection, if configured.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports whether the amqp connection is configured and reachable, plus per-queue message/consumer counts.
+     */
     public function getStatus(): array
     {
         if (!$this->deploymentConfig->get('queue/amqp/host')) {
@@ -88,22 +112,31 @@ class RabbitMqReporter implements ReporterInterface, DeclaresSectionInterface
     }
 
     /**
+     * Assembles the getStatus() payload from the connection/reachability check and queue rows.
+     *
+     * @param bool $configured
+     * @param bool|null $reachable
      * @param list<ArrayField> $queues
      * @return array<string, \StackNuts\StackGauge\Api\Section\SectionInterface>
      */
     private function result(bool $configured, ?bool $reachable, array $queues): array
     {
-        $generalFields = ['configured' => Field::bool('Configured', $configured)];
+        $generalFields = ['configured' => $this->field->bool('Configured', $configured)];
         if ($reachable !== null) {
-            $generalFields['reachable'] = Field::bool('Reachable', $reachable, criticalWhen: false);
+            $generalFields['reachable'] = $this->field->bool('Reachable', $reachable, criticalWhen: false);
         }
 
         return [
-            'general' => Section::facts('general', 'General', '', $generalFields),
-            'queues' => Section::table('queues', 'Queues', 'Per-queue message/consumer count.', $queues),
+            'general' => $this->section->facts('general', 'General', '', $generalFields),
+            'queues' => $this->section->table('queues', 'Queues', 'Per-queue message/consumer count.', $queues),
         ];
     }
 
+    /**
+     * Passively declares $name on the amqp connection and builds its row; a missing queue is not a failure.
+     *
+     * @param string $name
+     */
     private function checkQueue(string $name): ArrayField
     {
         try {
@@ -120,15 +153,23 @@ class RabbitMqReporter implements ReporterInterface, DeclaresSectionInterface
         }
     }
 
+    /**
+     * Builds one queue's row.
+     *
+     * @param string $name
+     * @param bool $exists
+     * @param int $messages
+     * @param int $consumers
+     */
     private function queueField(string $name, bool $exists, int $messages, int $consumers): ArrayField
     {
-        return Field::array($name, [
-            'name' => Field::varchar('Name', $name),
+        return $this->field->array($name, [
+            'name' => $this->field->varchar('Name', $name),
             // Not criticalWhen:false - NOT_FOUND is a normal outcome for a queue that's
             // never had a consumer run yet (see checkQueue()), not a health signal.
-            'exists' => Field::bool('Exists', $exists),
-            'messages' => Field::number('Messages', $messages),
-            'consumers' => Field::number('Consumers', $consumers),
+            'exists' => $this->field->bool('Exists', $exists),
+            'messages' => $this->field->number('Messages', $messages),
+            'consumers' => $this->field->number('Consumers', $consumers),
         ]);
     }
 }

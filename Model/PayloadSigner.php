@@ -15,6 +15,12 @@ namespace StackNuts\StackGauge\Model;
  */
 class PayloadSigner
 {
+    /**
+     * Signs $rawBody with $secret - see this class's own docblock for why it signs raw bytes.
+     *
+     * @param string $rawBody
+     * @param string $secret
+     */
     public function sign(string $rawBody, string $secret): string
     {
         return hash_hmac('sha256', $rawBody, $secret);

@@ -55,5 +55,8 @@ interface DeclaresSectionInterface
         self::SECTION_PLATFORM,
     ];
 
+    /**
+     * One of self::SECTION_* (see VALID_SECTIONS) - the domain category this reporter's data belongs to.
+     */
     public function getSection(): string;
 }

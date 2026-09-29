@@ -18,12 +18,19 @@ use Throwable;
  */
 class SendHeartbeat
 {
+    /**
+     * @param HeartbeatSender $heartbeatSender
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly HeartbeatSender $heartbeatSender,
         private readonly LoggerInterface $logger
     ) {
     }
 
+    /**
+     * Runs the 5-minute heartbeat job - see this class's own docblock for why it never throws.
+     */
     public function execute(): void
     {
         try {

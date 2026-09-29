@@ -17,6 +17,9 @@ use Magento\Config\Block\System\Config\Form\Field\FieldArray\AbstractFieldArray;
  */
 class LogFiles extends AbstractFieldArray
 {
+    /**
+     * Defines the repeater's two columns and add-row button label.
+     */
     protected function _prepareToRender()
     {
         $this->addColumn('name', ['label' => __('Name')]);

@@ -20,12 +20,19 @@ use Throwable;
  */
 class SendReport
 {
+    /**
+     * @param ReportSender $reportSender
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly ReportSender $reportSender,
         private readonly LoggerInterface $logger
     ) {
     }
 
+    /**
+     * Runs the hourly full report job - see this class's own docblock for why it never throws.
+     */
     public function execute(): void
     {
         try {

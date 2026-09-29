@@ -3,6 +3,6 @@
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
     <event name="admin_system_config_changed_section_stacknuts_stackgauge">
         <observer name="stacknuts_stackgauge_config_sync_on_section_save"
-                  instance="StackNuts\StackGauge\Observer\ConfigSyncOnSectionSave" />
+                  instance="StackNuts\StackGauge\Observer\ConfigSyncOnSectionSave" shared="false" />
     </event>
 </config>

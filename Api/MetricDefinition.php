@@ -19,7 +19,7 @@ use JsonSerializable;
  * config-sync, and only ever reapplies them via an explicit "reset to default" action - an
  * edited threshold survives every subsequent sync. See Api\MetricCatalogInterface.
  */
-final class MetricDefinition implements JsonSerializable
+class MetricDefinition implements JsonSerializable
 {
     public const AGGREGATION_SUM = 'sum';
     public const AGGREGATION_AVG = 'avg';
@@ -57,6 +57,14 @@ final class MetricDefinition implements JsonSerializable
         self::OPERATOR_EQ,
     ];
 
+    /**
+     * @param string $metricKey Stable machine key, matched against Field::trackableNumber()'s metricKey.
+     * @param string $label
+     * @param string $aggregation One of self::AGGREGATION_*.
+     * @param string $defaultOperator One of self::OPERATOR_*.
+     * @param int|float $defaultThreshold
+     * @param int $defaultWindowMinutes
+     */
     public function __construct(
         private readonly string $metricKey,
         private readonly string $label,
@@ -86,37 +94,57 @@ final class MetricDefinition implements JsonSerializable
         }
     }
 
+    /**
+     * The metric_key passed to the constructor.
+     */
     public function getMetricKey(): string
     {
         return $this->metricKey;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The aggregation passed to the constructor.
+     */
     public function getAggregation(): string
     {
         return $this->aggregation;
     }
 
+    /**
+     * The default operator passed to the constructor.
+     */
     public function getDefaultOperator(): string
     {
         return $this->defaultOperator;
     }
 
+    /**
+     * The default threshold passed to the constructor.
+     */
     public function getDefaultThreshold(): int|float
     {
         return $this->defaultThreshold;
     }
 
+    /**
+     * The default window (in minutes) passed to the constructor.
+     */
     public function getDefaultWindowMinutes(): int
     {
         return $this->defaultWindowMinutes;
     }
 
     /**
+     * Wire representation of this metric definition.
+     *
      * @return array<string, mixed>
      */
     public function jsonSerialize(): array

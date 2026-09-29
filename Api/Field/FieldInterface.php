@@ -27,6 +27,9 @@ interface FieldInterface extends JsonSerializable
      */
     public function getType(): string;
 
+    /**
+     * Short human-readable label for this field, e.g. "Magento Version".
+     */
     public function getLabel(): string;
 
     /**

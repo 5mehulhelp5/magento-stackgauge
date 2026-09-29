@@ -22,6 +22,10 @@ use Throwable;
  */
 class MetricCatalogPool
 {
+    /**
+     * @param ReporterPool $reporterPool
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly ReporterPool $reporterPool,
         private readonly LoggerInterface $logger
@@ -29,6 +33,8 @@ class MetricCatalogPool
     }
 
     /**
+     * Every trackable metric across every registered reporter, keyed by metric_key.
+     *
      * @return array<string, MetricDefinition>
      */
     public function collect(): array

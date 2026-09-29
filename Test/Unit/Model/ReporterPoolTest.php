@@ -191,7 +191,7 @@ class ReporterPoolTest extends TestCase
      */
     private function factsSection(array $fields): FactsSection
     {
-        return Section::facts('general', 'General', '', $fields);
+        return (new Section())->facts('general', 'General', '', $fields);
     }
 
     /**
@@ -208,7 +208,7 @@ class ReporterPoolTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
 
-        $section = $this->factsSection(['edition' => Field::varchar('Edition', 'Community')]);
+        $section = $this->factsSection(['edition' => (new Field())->varchar('Edition', 'Community')]);
 
         $pool = new ReporterPool(
             [$this->fakeReporter('core', '2.0', ['general' => $section])],
@@ -235,7 +235,13 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn(['modules']); // "core" not enabled
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '1.0', ['general' => $this->factsSection(['edition' => Field::varchar('Edition', 'Community')])])],
+            [
+                $this->fakeReporter(
+                    'core',
+                    '1.0',
+                    ['general' => $this->factsSection(['edition' => (new Field())->varchar('Edition', 'Community')])]
+                ),
+            ],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -248,7 +254,7 @@ class ReporterPoolTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn([]); // nothing built-in enabled
 
-        $section = $this->factsSection(['purge_queue_backlog' => Field::number('Backlog', 0)]);
+        $section = $this->factsSection(['purge_queue_backlog' => (new Field())->number('Backlog', 0)]);
 
         $pool = new ReporterPool(
             [$this->fakeReporter('cloudflare', '1.0', ['general' => $section])],
@@ -273,7 +279,11 @@ class ReporterPoolTest extends TestCase
         $pool = new ReporterPool(
             [
                 $this->throwingReporter('core', 'boom'),
-                $this->fakeReporter('cron', '1.0', ['general' => $this->factsSection(['alive' => Field::bool('Alive', true)])]),
+                $this->fakeReporter(
+                    'cron',
+                    '1.0',
+                    ['general' => $this->factsSection(['alive' => (new Field())->bool('Alive', true)])]
+                ),
             ],
             $config,
             $logger
@@ -305,7 +315,13 @@ class ReporterPoolTest extends TestCase
         $config->method('getEnabledReporterCodes')->willReturn(['core']);
 
         $pool = new ReporterPool(
-            [$this->fakeReporter('core', '1.0', ['general' => $this->factsSection(['edition' => Field::varchar('Edition', 'Community')])])],
+            [
+                $this->fakeReporter(
+                    'core',
+                    '1.0',
+                    ['general' => $this->factsSection(['edition' => (new Field())->varchar('Edition', 'Community')])]
+                ),
+            ],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -324,7 +340,7 @@ class ReporterPoolTest extends TestCase
                 $this->fakeReporterWithCadence(
                     'modules',
                     DeclaresCadenceInterface::CADENCE_DAILY,
-                    ['general' => $this->factsSection(['count' => Field::number('Count', 42)])]
+                    ['general' => $this->factsSection(['count' => (new Field())->number('Count', 42)])]
                 ),
             ],
             $config,
@@ -340,7 +356,7 @@ class ReporterPoolTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getEnabledReporterCodes')->willReturn(['sales']);
 
-        $section = $this->factsSection(['orders' => Field::number('Orders', 5)]);
+        $section = $this->factsSection(['orders' => (new Field())->number('Orders', 5)]);
 
         $pool = new ReporterPool(
             [$this->fakeReporterWithSection('sales', DeclaresSectionInterface::SECTION_COMMERCE, ['general' => $section])],
@@ -359,7 +375,7 @@ class ReporterPoolTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('warning');
 
-        $section = $this->factsSection(['orders' => Field::number('Orders', 5)]);
+        $section = $this->factsSection(['orders' => (new Field())->number('Orders', 5)]);
 
         $pool = new ReporterPool(
             [$this->fakeReporterWithSection('sales', 'not_a_real_section', ['general' => $section])],

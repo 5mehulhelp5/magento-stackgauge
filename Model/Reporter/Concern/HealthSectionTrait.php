@@ -15,6 +15,9 @@ use StackNuts\StackGauge\Api\DeclaresSectionInterface;
  */
 trait HealthSectionTrait
 {
+    /**
+     * Always DeclaresSectionInterface::SECTION_HEALTH.
+     */
     public function getSection(): string
     {
         return DeclaresSectionInterface::SECTION_HEALTH;

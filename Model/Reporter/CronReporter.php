@@ -36,31 +36,53 @@ class CronReporter implements ReporterInterface, DeclaresSectionInterface
      */
     private const ROW_LIMIT = 500;
 
+    /**
+     * @param CollectionFactory $scheduleCollectionFactory
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly CollectionFactory $scheduleCollectionFactory
+        private readonly CollectionFactory $scheduleCollectionFactory,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the cron reporter.
+     */
     public function getName(): string
     {
         return 'cron';
     }
 
+    /**
+     * Human-readable label for the cron reporter block.
+     */
     public function getLabel(): string
     {
         return 'Cron';
     }
 
+    /**
+     * One-line summary of what the cron reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Whether cron looks alive, plus last success and next due time per job code.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports whether cron looks alive from the most recent cron_schedule row, plus last success and next due time per job code.
+     */
     public function getStatus(): array
     {
         $collection = $this->scheduleCollectionFactory->create();
@@ -107,19 +129,36 @@ class CronReporter implements ReporterInterface, DeclaresSectionInterface
 
         $jobRows = [];
         foreach ($jobCodes as $jobCode) {
-            $jobRows[] = Field::array($jobCode, [
-                'job_code' => Field::varchar('Job', $jobCode),
-                'last_success_at' => Field::varchar('Last Success', $lastSuccessByJob[$jobCode] ?? ''),
-                'next_scheduled_at' => Field::varchar('Next Scheduled', $nextScheduledByJob[$jobCode] ?? ''),
+            $jobRows[] = $this->field->array($jobCode, [
+                'job_code' => $this->field->varchar('Job', $jobCode),
+                'last_success_at' => $this->field->varchar('Last Success', $lastSuccessByJob[$jobCode] ?? ''),
+                'next_scheduled_at' => $this->field->varchar(
+                    'Next Scheduled',
+                    $nextScheduledByJob[$jobCode] ?? ''
+                ),
             ]);
         }
 
         return [
-            'general' => Section::facts('general', 'General', 'Whether cron looks alive, and when the schedule was last generated.', [
-                'alive' => Field::bool('Alive', $alive, criticalWhen: false),
-                'last_schedule_generated_at' => Field::varchar('Last Schedule Generated At', $mostRecentCreatedAt ?? ''),
-            ]),
-            'jobs' => Section::table('jobs', 'Jobs', 'Per-job last success and next scheduled time.', $jobRows, keyName: 'job_code'),
+            'general' => $this->section->facts(
+                'general',
+                'General',
+                'Whether cron looks alive, and when the schedule was last generated.',
+                [
+                    'alive' => $this->field->bool('Alive', $alive, criticalWhen: false),
+                    'last_schedule_generated_at' => $this->field->varchar(
+                        'Last Schedule Generated At',
+                        $mostRecentCreatedAt ?? ''
+                    ),
+                ]
+            ),
+            'jobs' => $this->section->table(
+                'jobs',
+                'Jobs',
+                'Per-job last success and next scheduled time.',
+                $jobRows,
+                keyName: 'job_code'
+            ),
         ];
     }
 }

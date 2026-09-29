@@ -13,6 +13,8 @@ use Magento\Framework\DB\Adapter\AdapterInterface;
 use Magento\Framework\DB\Select;
 use Magento\SalesRule\Model\Rule;
 use PHPUnit\Framework\TestCase;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\CouponsReporter;
 
 class CouponsReporterTest extends TestCase
@@ -39,7 +41,7 @@ class CouponsReporterTest extends TestCase
         $connection->method('fetchOne')->willReturn('247');
         $connection->method('fetchAll')->willReturn([]);
 
-        $reporter = new CouponsReporter($resource);
+        $reporter = new CouponsReporter($resource, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $fields = $status['general']->getFields();
@@ -93,7 +95,7 @@ class CouponsReporterTest extends TestCase
             ],
         ]);
 
-        $reporter = new CouponsReporter($resource);
+        $reporter = new CouponsReporter($resource, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $rows = $status['active_rules']->getRows();
@@ -128,7 +130,7 @@ class CouponsReporterTest extends TestCase
         $resource->method('getConnection')->willReturn($connection);
         $resource->method('getTableName')->willReturnArgument(0);
 
-        $reporter = new CouponsReporter($resource);
+        $reporter = new CouponsReporter($resource, new Field(), new Section());
         $metrics = $reporter->getTrackableMetrics();
 
         $this->assertCount(1, $metrics);
@@ -139,7 +141,7 @@ class CouponsReporterTest extends TestCase
     public function testUsesDailyCadence(): void
     {
         $resource = $this->createMock(ResourceConnection::class);
-        $reporter = new CouponsReporter($resource);
+        $reporter = new CouponsReporter($resource, new Field(), new Section());
 
         $this->assertSame('daily', $reporter->getCadence());
     }
@@ -147,7 +149,7 @@ class CouponsReporterTest extends TestCase
     public function testDeclaresTheCommerceSection(): void
     {
         $resource = $this->createMock(ResourceConnection::class);
-        $reporter = new CouponsReporter($resource);
+        $reporter = new CouponsReporter($resource, new Field(), new Section());
 
         $this->assertSame('commerce', $reporter->getSection());
     }

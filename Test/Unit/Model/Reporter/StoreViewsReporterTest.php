@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\StoreViewsReporter;
 
 class StoreViewsReporterTest extends TestCase
@@ -28,7 +30,7 @@ class StoreViewsReporterTest extends TestCase
             ['general/locale/code', 'stores', 1, 'en_US'],
         ]);
 
-        $reporter = new StoreViewsReporter($storeManager, $scopeConfig);
+        $reporter = new StoreViewsReporter($storeManager, $scopeConfig, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('store_views', $status);

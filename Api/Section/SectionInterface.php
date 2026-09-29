@@ -19,8 +19,10 @@ use JsonSerializable;
 interface SectionInterface extends JsonSerializable
 {
     /**
-     * Stable key within this reporter, e.g. "general", "jobs" - must match the key this
-     * section is registered under in ReporterInterface::getStatus()'s returned array.
+     * Stable key within this reporter, e.g. "general", "jobs".
+     *
+     * Must match the key this section is registered under in ReporterInterface::getStatus()'s
+     * returned array.
      */
     public function getKey(): string;
 

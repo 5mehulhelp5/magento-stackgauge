@@ -6,14 +6,20 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem;
 use Magento\Framework\Filesystem\Directory\ReadInterface;
+use Magento\Framework\Filesystem\Driver\File;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Shell;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\PatchReporter;
 
 class PatchReporterTest extends TestCase
 {
+    /**
+     * @var string
+     */
     private string $binary;
 
     protected function setUp(): void
@@ -27,7 +33,9 @@ class PatchReporterTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->binary);
+        if (is_file($this->binary)) {
+            unlink($this->binary);
+        }
     }
 
     private function reporter(string $shellOutput): PatchReporter
@@ -41,7 +49,15 @@ class PatchReporterTest extends TestCase
         $shell = $this->createMock(Shell::class);
         $shell->method('execute')->willReturn($shellOutput);
 
-        return new PatchReporter($filesystem, $shell, new Json(), $this->createMock(LoggerInterface::class));
+        return new PatchReporter(
+            $filesystem,
+            new File(),
+            $shell,
+            new Json(),
+            $this->createMock(LoggerInterface::class),
+            new Field(),
+            new Section()
+        );
     }
 
     public function testParsesRecognizedJsonIntoStructuredSections(): void

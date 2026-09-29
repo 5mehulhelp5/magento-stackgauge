@@ -16,47 +16,70 @@ use StackNuts\StackGauge\Api\ReporterInterface;
 use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\Concern\PlatformSectionTrait;
 
-final class ReportReporter implements ReporterInterface, DeclaresSectionInterface
+class ReportReporter implements ReporterInterface, DeclaresSectionInterface
 {
     use PlatformSectionTrait;
 
     private const SCHEMA_VERSION = '1.0';
 
-    public function __construct(private readonly Filesystem $filesystem)
-    {
+    /**
+     * @param Filesystem $filesystem
+     * @param Field $field
+     * @param Section $section
+     */
+    public function __construct(
+        private readonly Filesystem $filesystem,
+        private readonly Field $field,
+        private readonly Section $section
+    ) {
     }
 
+    /**
+     * Payload key for the reports reporter.
+     */
     public function getName(): string
     {
         return 'reports';
     }
 
+    /**
+     * Human-readable label for the reports reporter block.
+     */
     public function getLabel(): string
     {
         return 'Reports';
     }
 
+    /**
+     * One-line summary of what the reports reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Recent var/report summaries.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports up to five most-recent var/report file names, each with a distilled exception/error message.
+     */
     public function getStatus(): array
     {
         $varDir = $this->filesystem->getDirectoryRead(DirectoryList::VAR_DIR);
         try {
             if (! $varDir->isExist('report')) {
-                return ['reports' => Section::table('reports', 'Recent Reports', $this->getDescription(), [])];
+                return ['reports' => $this->section->table('reports', 'Recent Reports', $this->getDescription(), [])];
             }
 
             $files = $varDir->read('report');
         } catch (\Throwable) {
-            return ['reports' => Section::table('reports', 'Recent Reports', $this->getDescription(), [])];
+            return ['reports' => $this->section->table('reports', 'Recent Reports', $this->getDescription(), [])];
         }
 
         $recent = [];
@@ -73,17 +96,22 @@ final class ReportReporter implements ReporterInterface, DeclaresSectionInterfac
             }
 
             $message = $this->extractMessage($content);
-            $recent[] = Field::array('', [
-                'name' => Field::varchar('Name', (string) $file),
-                'message' => Field::varchar('Message', $message),
+            $recent[] = $this->field->array('', [
+                'name' => $this->field->varchar('Name', (string) $file),
+                'message' => $this->field->varchar('Message', $message),
             ]);
 
             $count++;
         }
 
-        return ['reports' => Section::table('reports', 'Recent Reports', $this->getDescription(), $recent)];
+        return ['reports' => $this->section->table('reports', 'Recent Reports', $this->getDescription(), $recent)];
     }
 
+    /**
+     * Pulls a short exception/error message out of a var/report file's raw content, falling back to a plain excerpt.
+     *
+     * @param string $content
+     */
     private function extractMessage(string $content): string
     {
         $content = trim($content);

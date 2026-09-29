@@ -53,6 +53,9 @@ class ReporterList implements OptionSourceInterface
         'product_health',
     ];
 
+    /**
+     * Options for the admin "Enabled Reporters" multiselect - one per code in self::CODES.
+     */
     public function toOptionArray(): array
     {
         return [

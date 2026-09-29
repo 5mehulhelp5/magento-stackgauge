@@ -13,6 +13,10 @@ use Magento\Framework\Encryption\EncryptorInterface;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Store\Model\ScopeInterface;
 
+/**
+ * Reads StackGauge's own store-scoped system config (Stores > Configuration > Advanced >
+ * StackGauge), decrypting the two encrypted fields on the way out.
+ */
 class Config
 {
     private const XML_PATH_ENABLED = 'stacknuts_stackgauge/general/enabled';
@@ -24,6 +28,11 @@ class Config
     private const XML_PATH_ADDITIONAL_LOG_FILES = 'stacknuts_stackgauge/general/additional_log_files';
     private const XML_PATH_LOG_LEVEL = 'stacknuts_stackgauge/log/log_level';
 
+    /**
+     * @param ScopeConfigInterface $scopeConfig
+     * @param EncryptorInterface $encryptor
+     * @param Json $json
+     */
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly EncryptorInterface $encryptor,
@@ -31,11 +40,21 @@ class Config
     ) {
     }
 
+    /**
+     * Whether StackGauge is enabled for this store.
+     *
+     * @param int|null $storeId
+     */
     public function isEnabled(?int $storeId = null): bool
     {
         return $this->scopeConfig->isSetFlag(self::XML_PATH_ENABLED, ScopeInterface::SCOPE_STORE, $storeId);
     }
 
+    /**
+     * The dashboard endpoint URL, or null if not configured.
+     *
+     * @param int|null $storeId
+     */
     public function getEndpointUrl(?int $storeId = null): ?string
     {
         $value = $this->scopeConfig->getValue(self::XML_PATH_ENDPOINT_URL, ScopeInterface::SCOPE_STORE, $storeId);
@@ -43,6 +62,11 @@ class Config
         return $value !== null && $value !== '' ? (string)$value : null;
     }
 
+    /**
+     * The dashboard's site identifier for this store, or null if not configured.
+     *
+     * @param int|null $storeId
+     */
     public function getSiteId(?int $storeId = null): ?string
     {
         $value = $this->scopeConfig->getValue(self::XML_PATH_SITE_ID, ScopeInterface::SCOPE_STORE, $storeId);
@@ -51,9 +75,12 @@ class Config
     }
 
     /**
-     * The api_key field's backend_model only encrypts on save via the admin form -
+     * The api_key field's backend_model only encrypts on save via the admin form.
+     *
      * ScopeConfigInterface returns the raw ciphertext straight from core_config_data/env.php,
      * so it must be decrypted here.
+     *
+     * @param int|null $storeId
      */
     public function getApiKey(?int $storeId = null): ?string
     {
@@ -62,6 +89,11 @@ class Config
         return $value ? $this->encryptor->decrypt($value) : null;
     }
 
+    /**
+     * The HMAC secret used to sign outbound payloads, decrypted, or null if not configured.
+     *
+     * @param int|null $storeId
+     */
     public function getHmacSecret(?int $storeId = null): ?string
     {
         $value = $this->scopeConfig->getValue(self::XML_PATH_HMAC_SECRET, ScopeInterface::SCOPE_STORE, $storeId);
@@ -71,9 +103,11 @@ class Config
 
     /**
      * Built-in reporter codes enabled via the admin "Enabled Reporters" multiselect.
+     *
      * Third-party reporters registered through di.xml are not covered by this list -
      * see Api\ReporterInterface for why that's a deliberate v1 boundary.
      *
+     * @param int|null $storeId
      * @return string[]
      */
     public function getEnabledReporterCodes(?int $storeId = null): array
@@ -84,12 +118,14 @@ class Config
     }
 
     /**
-     * Log files (relative to var/log) LogReporter shows a recent-lines tail for, each with an
-     * admin-given display name. A row containing a path separator or ".." is dropped rather
-     * than passed through, since LogReporter turns this straight into a
-     * Filesystem::readFile() call and this free text is admin-typed. A blank "name" falls
-     * back to the filename itself.
+     * Log files (relative to var/log) LogReporter shows a recent-lines tail for.
      *
+     * Each has an admin-given display name. A row containing a path separator or ".." is
+     * dropped rather than passed through, since
+     * LogReporter turns this straight into a Filesystem::readFile() call and this free text
+     * is admin-typed. A blank "name" falls back to the filename itself.
+     *
+     * @param int|null $storeId
      * @return array<string, string> filename => display name
      */
     public function getMonitoredLogFiles(?int $storeId = null): array
@@ -123,6 +159,11 @@ class Config
         return $files;
     }
 
+    /**
+     * The admin-configured minimum log level - one of LogLevel::LEVEL_*.
+     *
+     * @param int|null $storeId
+     */
     public function getLogLevel(?int $storeId = null): int
     {
         return (int)$this->scopeConfig->getValue(self::XML_PATH_LOG_LEVEL, ScopeInterface::SCOPE_STORE, $storeId);

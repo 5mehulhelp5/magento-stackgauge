@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Api\Field;
 
 use InvalidArgumentException;
+use StackNuts\StackGauge\Api\Field\Concern\ValidatesSeverityTrait;
 
 /**
  * A short display string. Content is cleaned at construction time - strip_tags() plus
@@ -26,14 +27,22 @@ use InvalidArgumentException;
  *
  * Both left null (the default) for a varchar with no health meaning of its own.
  */
-final class VarcharField implements FieldInterface
+class VarcharField implements FieldInterface
 {
+    use ValidatesSeverityTrait;
+
     public const MAX_LENGTH = 500;
 
+    /**
+     * @var string
+     */
     private readonly string $value;
 
     /**
+     * @param string $label
+     * @param string $value
      * @param list<string>|null $criticalValues
+     * @param string|null $severity
      */
     public function __construct(
         private readonly string $label,
@@ -47,34 +56,62 @@ final class VarcharField implements FieldInterface
             );
         }
 
-        Field::assertValidSeverity('Varchar', $label, $severity);
+        $this->assertValidSeverity('Varchar', $label, $severity);
 
-        $this->value = self::clean($value);
+        $this->value = $this->clean($value);
     }
 
+    /**
+     * Always Field::TYPE_VARCHAR.
+     */
     public function getType(): string
     {
         return Field::TYPE_VARCHAR;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The cleaned value - see clean().
+     */
     public function getValue(): string
     {
         return $this->value;
     }
 
-    private static function clean(string $value): string
+    /**
+     * Strips tags and control characters, then truncates to MAX_LENGTH.
+     *
+     * See this class's own docblock for why this isn't an XSS defense.
+     *
+     * @param string $value
+     */
+    private function clean(string $value): string
     {
+        if (!mb_check_encoding($value, 'UTF-8')) {
+            // mb_convert_encoding(..., 'UTF-8', 'UTF-8') scrubs invalid byte sequences rather
+            // than throwing. mb_scrub() is more explicit but needs PHP 8.2+, and this module
+            // still supports 8.1 (see composer.json) - don't switch to it without dropping 8.1.
+            $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        }
+
         $value = strip_tags($value);
         $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $value) ?? '';
 
         return mb_substr($value, 0, self::MAX_LENGTH);
     }
 
+    /**
+     * Wire representation of this field.
+     *
+     * @return array{type: string, label: string, value: string, critical_values?: list<string>, severity?: string}
+     */
     public function jsonSerialize(): array
     {
         $data = ['type' => $this->getType(), 'label' => $this->label, 'value' => $this->value];

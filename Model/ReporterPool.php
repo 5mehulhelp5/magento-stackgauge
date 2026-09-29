@@ -28,6 +28,8 @@ class ReporterPool
 {
     /**
      * @param ReporterInterface[] $reporters
+     * @param Config $config
+     * @param LoggerInterface $logger
      */
     public function __construct(
         private readonly array $reporters,
@@ -37,6 +39,10 @@ class ReporterPool
     }
 
     /**
+     * Every registered reporter, as passed in via di.xml.
+     *
+     * Not filtered by cadence or the admin "Enabled Reporters" toggle.
+     *
      * @return ReporterInterface[]
      */
     public function getReporters(): array
@@ -45,6 +51,12 @@ class ReporterPool
     }
 
     /**
+     * The "reporters" block of the payload for the given cadence tier.
+     *
+     * Every enabled reporter at that cadence, keyed by name, each already error-isolated via
+     * collectOne().
+     *
+     * @param string $cadence One of Api\DeclaresCadenceInterface::CADENCE_*.
      * @return array<string, array<string, mixed>>
      */
     public function collect(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
@@ -88,6 +100,12 @@ class ReporterPool
     }
 
     /**
+     * Collects one reporter's block.
+     *
+     * Replaces it with an {"error": ...} marker if the reporter throws or returns something
+     * invalid - see this class's own docblock.
+     *
+     * @param ReporterInterface $reporter
      * @return array<string, mixed>
      */
     private function collectOne(ReporterInterface $reporter): array

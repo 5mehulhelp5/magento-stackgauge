@@ -10,14 +10,14 @@ class BoolFieldTest extends TestCase
 {
     public function testJsonSerializeOmitsCriticalWhenByDefault(): void
     {
-        $field = Field::bool('Enabled', false);
+        $field = (new Field())->bool('Enabled', false);
 
         $this->assertSame(['type' => 'bool', 'label' => 'Enabled', 'value' => false], $field->jsonSerialize());
     }
 
     public function testJsonSerializeIncludesCriticalWhenWhenSet(): void
     {
-        $field = Field::bool('Alive', false, criticalWhen: false);
+        $field = (new Field())->bool('Alive', false, criticalWhen: false);
 
         $this->assertSame(
             ['type' => 'bool', 'label' => 'Alive', 'value' => false, 'critical_when' => false],

@@ -6,6 +6,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use PHPUnit\Framework\TestCase;
 use Magento\Quote\Model\ResourceModel\Quote\Collection as QuoteCollection;
 use Magento\Quote\Model\ResourceModel\Quote\CollectionFactory as QuoteCollectionFactory;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\AbandonedCartsReporter;
 use StackNuts\StackGauge\Model\Util\Clock;
 
@@ -17,7 +19,13 @@ class AbandonedCartsReporterTest extends TestCase
         $colCount->method('addFieldToFilter')->willReturnSelf();
         $colCount->method('getSize')->willReturn(3);
 
-        $sampleItem = new class { public function getId() { return 101; } };
+        $sampleItem = new class
+        {
+            public function getId()
+            {
+                return 101;
+            }
+        };
         $colSample = $this->createMock(QuoteCollection::class);
         $colSample->method('addFieldToFilter')->willReturnSelf();
         $colSample->method('setPageSize')->willReturnSelf();
@@ -26,7 +34,7 @@ class AbandonedCartsReporterTest extends TestCase
         $factory = $this->createMock(QuoteCollectionFactory::class);
         $factory->method('create')->willReturnOnConsecutiveCalls($colCount, $colSample);
 
-        $reporter = new AbandonedCartsReporter($factory, new Clock());
+        $reporter = new AbandonedCartsReporter($factory, new Clock(), new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('general', $status);
@@ -49,7 +57,7 @@ class AbandonedCartsReporterTest extends TestCase
         $col->method('getItems')->willReturn([]);
         $factory->method('create')->willReturn($col);
 
-        $reporter = new AbandonedCartsReporter($factory, new Clock());
+        $reporter = new AbandonedCartsReporter($factory, new Clock(), new Field(), new Section());
 
         $this->assertSame(
             'delta',

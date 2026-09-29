@@ -9,6 +9,8 @@ use Magento\Catalog\Model\ResourceModel\Product\Collection as ProductCollection;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
 use Magento\Framework\DB\Select;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\InventoryReporter;
 
 class InventoryReporterTest extends TestCase
@@ -33,7 +35,7 @@ class InventoryReporterTest extends TestCase
         $resourceConnection->method('getConnection')->willReturn($connection);
         $resourceConnection->method('getTableName')->willReturn('cataloginventory_stock_item');
 
-        $reporter = new InventoryReporter($factory, $resourceConnection);
+        $reporter = new InventoryReporter($factory, $resourceConnection, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('general', $status);
@@ -50,7 +52,7 @@ class InventoryReporterTest extends TestCase
         $factory = $this->createMock(ProductCollectionFactory::class);
         $resourceConnection = $this->createMock(ResourceConnection::class);
 
-        $reporter = new InventoryReporter($factory, $resourceConnection);
+        $reporter = new InventoryReporter($factory, $resourceConnection, new Field(), new Section());
         $metrics = $reporter->getTrackableMetrics();
 
         $this->assertCount(1, $metrics);

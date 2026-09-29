@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Magento\Cron\Model\ResourceModel\Schedule\Collection as ScheduleCollection;
 use Magento\Cron\Model\ResourceModel\Schedule\CollectionFactory as ScheduleCollectionFactory;
 use StackNuts\StackGauge\Api\Field\ArrayField;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\CronReporter;
 
 class CronReporterTest extends TestCase
@@ -74,7 +76,7 @@ class CronReporterTest extends TestCase
         $factory = $this->createMock(ScheduleCollectionFactory::class);
         $factory->method('create')->willReturn($collection);
 
-        return new CronReporter($factory);
+        return new CronReporter($factory, new Field(), new Section());
     }
 
     public function testAliveIsTrueWhenMostRecentRowIsRecent(): void

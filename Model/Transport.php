@@ -30,6 +30,13 @@ class Transport
      */
     private const GZIP_THRESHOLD_BYTES = 1024;
 
+    /**
+     * @param Config $config
+     * @param PayloadSigner $payloadSigner
+     * @param Curl $curl
+     * @param Json $json
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly Config $config,
         private readonly PayloadSigner $payloadSigner,
@@ -40,7 +47,12 @@ class Transport
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * Sends $payload to the configured dashboard endpoint.
+     *
+     * Gzip-compressed above GZIP_THRESHOLD_BYTES and HMAC-signed if a secret is configured.
+     *
+     * @param array<string,mixed> $payload
+     * @param string $logContext Short label for this send used in log/warning messages, e.g. "heartbeat".
      */
     public function send(array $payload, string $logContext): bool
     {
@@ -71,6 +83,7 @@ class Transport
 
         $wireBody = $body;
         if (strlen($body) >= self::GZIP_THRESHOLD_BYTES) {
+            // phpcs:ignore Magento2.Functions.DiscouragedFunction.Discouraged
             $compressed = gzencode($body);
             if ($compressed !== false) {
                 $wireBody = $compressed;

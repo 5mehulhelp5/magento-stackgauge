@@ -22,12 +22,19 @@ use Throwable;
  */
 class ComposerLockReader
 {
+    /**
+     * @param Filesystem $filesystem
+     * @param Json $json
+     */
     public function __construct(
         private readonly Filesystem $filesystem,
         private readonly Json $json
     ) {
     }
 
+    /**
+     * The raw contents of the project root's composer.lock, or null if it doesn't exist.
+     */
     public function getRawContents(): ?string
     {
         $root = $this->filesystem->getDirectoryRead(DirectoryList::ROOT);
@@ -36,6 +43,8 @@ class ComposerLockReader
     }
 
     /**
+     * The project root's composer.lock, JSON-decoded, or null if it's missing or malformed.
+     *
      * @return array<string, mixed>|null
      */
     public function getDecoded(): ?array

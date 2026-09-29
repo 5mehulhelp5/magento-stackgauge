@@ -29,6 +29,11 @@ class SendReportCommand extends Command
     private const OPTION_CONFIG_SYNC = 'config-sync';
     private const OPTION_CADENCE = 'cadence';
 
+    /**
+     * @param ReportSender $reportSender
+     * @param HeartbeatSender $heartbeatSender
+     * @param string|null $name
+     */
     public function __construct(
         private readonly ReportSender $reportSender,
         private readonly HeartbeatSender $heartbeatSender,
@@ -37,6 +42,9 @@ class SendReportCommand extends Command
         parent::__construct($name);
     }
 
+    /**
+     * Declares the command name, description, and CLI options.
+     */
     protected function configure(): void
     {
         $this->setName('stackgauge:send')
@@ -70,6 +78,12 @@ class SendReportCommand extends Command
         parent::configure();
     }
 
+    /**
+     * Builds/sends a full status report (or dry-runs it) per the --dry-run/--force/--cadence options.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         if ($input->getOption(self::OPTION_CONFIG_SYNC)) {
@@ -101,6 +115,12 @@ class SendReportCommand extends Command
         return Command::FAILURE;
     }
 
+    /**
+     * Builds/sends the config-sync payload (or dry-runs it) per the --dry-run/--force options.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     */
     private function executeConfigSync(InputInterface $input, OutputInterface $output): int
     {
         if ($input->getOption(self::OPTION_DRY_RUN)) {

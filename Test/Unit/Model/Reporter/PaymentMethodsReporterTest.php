@@ -6,6 +6,8 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 use PHPUnit\Framework\TestCase;
 use Magento\Payment\Model\Config as PaymentConfig;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\PaymentMethodsReporter;
 
 class PaymentMethodsReporterTest extends TestCase
@@ -13,7 +15,10 @@ class PaymentMethodsReporterTest extends TestCase
     public function testGetStatusReturnsMethods(): void
     {
         $method = new class {
-            public function getTitle() { return 'Test Method'; }
+            public function getTitle()
+            {
+                return 'Test Method';
+            }
         };
 
         $paymentConfig = $this->createMock(PaymentConfig::class);
@@ -25,7 +30,7 @@ class PaymentMethodsReporterTest extends TestCase
             ['payment/test/active', null, null, '1'],
         ]);
 
-        $reporter = new PaymentMethodsReporter($paymentConfig, $scopeConfig);
+        $reporter = new PaymentMethodsReporter($paymentConfig, $scopeConfig, new Field(), new Section());
         $status = $reporter->getStatus();
 
         $this->assertArrayHasKey('payments', $status);

@@ -44,33 +44,57 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
      */
     private const PINGABLE_ENGINES = ['elasticsearch5', 'elasticsearch7', 'elasticsearch8', 'opensearch'];
 
+    /**
+     * @param ClientResolver $clientResolver
+     * @param SearchIndexNameResolver $searchIndexNameResolver
+     * @param StoreManagerInterface $storeManager
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly ClientResolver $clientResolver,
         private readonly SearchIndexNameResolver $searchIndexNameResolver,
-        private readonly StoreManagerInterface $storeManager
+        private readonly StoreManagerInterface $storeManager,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the search reporter.
+     */
     public function getName(): string
     {
         return 'search';
     }
 
+    /**
+     * Human-readable label for the search reporter block.
+     */
     public function getLabel(): string
     {
         return 'Search';
     }
 
+    /**
+     * One-line summary of what the search reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Configured search engine and whether it is actually reachable (Elasticsearch/OpenSearch only).';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the configured search engine, whether it's pingable, whether it answered, and the product index document count.
+     */
     public function getStatus(): array
     {
         $engine = $this->clientResolver->getCurrentEngine();
@@ -86,9 +110,9 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
         }
 
         $fields = [
-            'engine' => Field::varchar('Engine', $engine),
-            'pingable' => Field::bool('Pingable', $pingable, criticalWhen: false),
-            'reachable' => Field::bool('Reachable', $reachable, criticalWhen: false),
+            'engine' => $this->field->varchar('Engine', $engine),
+            'pingable' => $this->field->bool('Pingable', $pingable, criticalWhen: false),
+            'reachable' => $this->field->bool('Reachable', $reachable, criticalWhen: false),
         ];
 
         // Only meaningful once the cluster answers - catches the case where it's up but the
@@ -96,7 +120,7 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
         if ($reachable) {
             $documentCount = $this->indexDocumentCount();
             if ($documentCount !== null) {
-                $fields['index_document_count'] = Field::trackableNumber(
+                $fields['index_document_count'] = $this->field->trackableNumber(
                     'Product Index Document Count',
                     $documentCount,
                     self::METRIC_INDEX_DOCUMENT_COUNT,
@@ -105,9 +129,12 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
             }
         }
 
-        return ['general' => Section::facts('general', 'General', $this->getDescription(), $fields)];
+        return ['general' => $this->section->facts('general', 'General', $this->getDescription(), $fields)];
     }
 
+    /**
+     * Alertable metric for the search reporter: product index document count dropping too low.
+     */
     public function getTrackableMetrics(): array
     {
         return [
@@ -122,6 +149,9 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
         ];
     }
 
+    /**
+     * Counts documents in the current store's product fulltext index; only supported on OpenSearch clients.
+     */
     private function indexDocumentCount(): ?int
     {
         try {

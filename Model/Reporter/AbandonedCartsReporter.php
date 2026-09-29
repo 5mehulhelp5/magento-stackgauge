@@ -15,7 +15,7 @@ use StackNuts\StackGauge\Model\Reporter\Concern\CommerceSectionTrait;
 use StackNuts\StackGauge\Model\Reporter\Concern\DailyCadenceTrait;
 use StackNuts\StackGauge\Model\Util\Clock;
 
-final class AbandonedCartsReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
+class AbandonedCartsReporter implements ReporterInterface, DeclaresCadenceInterface, MetricCatalogInterface, DeclaresSectionInterface
 {
     use DailyCadenceTrait;
     use CommerceSectionTrait;
@@ -25,32 +25,56 @@ final class AbandonedCartsReporter implements ReporterInterface, DeclaresCadence
     private const SAMPLE_LIMIT = 5;
     private const HOURS_OLD = 24;
 
+    /**
+     * @param QuoteCollectionFactory $quoteCollectionFactory
+     * @param Clock $clock
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly QuoteCollectionFactory $quoteCollectionFactory,
-        private readonly Clock $clock
+        private readonly Clock $clock,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the abandoned-carts reporter.
+     */
     public function getName(): string
     {
         return 'abandoned_carts';
     }
 
+    /**
+     * Human-readable label for the abandoned-carts reporter block.
+     */
     public function getLabel(): string
     {
         return 'Abandoned Carts';
     }
 
+    /**
+     * One-line summary of the abandoned-carts reporter, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Counts of carts with items that appear abandoned (no activity in last 24h).';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports the count of active quotes with items that haven't been updated in the last
+     * 24h (read via QuoteCollectionFactory), plus a sample of up to five such quote IDs.
+     */
     public function getStatus(): array
     {
         $now = $this->clock->now();
@@ -78,20 +102,28 @@ final class AbandonedCartsReporter implements ReporterInterface, DeclaresCadence
 
         $sampleFields = [];
         foreach ($sampleIds as $id) {
-            $sampleFields[] = Field::array('', [
-                'name' => Field::varchar('Name', $id),
-                'quote_id' => Field::varchar('Quote ID', $id),
+            $sampleFields[] = $this->field->array('', [
+                'name' => $this->field->varchar('Name', $id),
+                'quote_id' => $this->field->varchar('Quote ID', $id),
             ]);
         }
 
         return [
-            'general' => Section::facts('general', 'General', '', [
-                'count' => Field::trackableNumber('Count', $total, self::METRIC_COUNT, MetricDefinition::AGGREGATION_DELTA),
+            'general' => $this->section->facts('general', 'General', '', [
+                'count' => $this->field->trackableNumber(
+                    'Count',
+                    $total,
+                    self::METRIC_COUNT,
+                    MetricDefinition::AGGREGATION_DELTA
+                ),
             ]),
-            'samples' => Section::table('samples', 'Samples', 'Recently abandoned cart IDs.', $sampleFields),
+            'samples' => $this->section->table('samples', 'Samples', 'Recently abandoned cart IDs.', $sampleFields),
         ];
     }
 
+    /**
+     * Alertable metric for the abandoned-carts reporter: week-over-week growth in the abandoned-cart count.
+     */
     public function getTrackableMetrics(): array
     {
         return [

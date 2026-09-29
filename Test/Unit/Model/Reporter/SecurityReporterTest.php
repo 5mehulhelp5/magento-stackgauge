@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\MaintenanceMode;
 use Magento\Framework\Module\ModuleListInterface;
+use StackNuts\StackGauge\Api\Field\Field;
+use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Reporter\SecurityReporter;
 
 class SecurityReporterTest extends TestCase
@@ -19,7 +21,7 @@ class SecurityReporterTest extends TestCase
         $moduleList = $this->createMock(ModuleListInterface::class);
         $moduleList->method('getAll')->willReturn([]);
 
-        $reporter = new SecurityReporter($deploymentConfig, $maintenance, $moduleList);
+        $reporter = new SecurityReporter($deploymentConfig, $maintenance, $moduleList, new Field(), new Section());
         $fields = $reporter->getStatus()['general']->getFields();
 
         $this->assertArrayHasKey('is_default_admin_path', $fields);

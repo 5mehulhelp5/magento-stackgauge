@@ -25,49 +25,71 @@ class DatabaseReporter implements ReporterInterface, DeclaresSectionInterface
 
     private const SCHEMA_VERSION = '1.0';
 
+    /**
+     * @param ResourceConnection $resourceConnection
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
-        private readonly ResourceConnection $resourceConnection
+        private readonly ResourceConnection $resourceConnection,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the database reporter.
+     */
     public function getName(): string
     {
         return 'database';
     }
 
+    /**
+     * Human-readable label for the database reporter block.
+     */
     public function getLabel(): string
     {
         return 'Database';
     }
 
+    /**
+     * One-line summary of what the database reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'MySQL/MariaDB version and reachability.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports connection reachability, version string, and distribution (mysql or mariadb) via SELECT VERSION().
+     */
     public function getStatus(): array
     {
         try {
             $versionString = (string)$this->resourceConnection->getConnection()->fetchOne('SELECT VERSION()');
 
-            return ['general' => Section::facts('general', 'General', $this->getDescription(), [
-                'reachable' => Field::bool('Reachable', true, criticalWhen: false),
-                'version' => Field::varchar('Version', $versionString),
-                'distribution' => Field::varchar(
+            return ['general' => $this->section->facts('general', 'General', $this->getDescription(), [
+                'reachable' => $this->field->bool('Reachable', true, criticalWhen: false),
+                'version' => $this->field->varchar('Version', $versionString),
+                'distribution' => $this->field->varchar(
                     'Distribution',
                     stripos($versionString, 'mariadb') !== false ? 'mariadb' : 'mysql'
                 ),
             ])];
         } catch (Throwable) {
-            return ['general' => Section::facts('general', 'General', $this->getDescription(), [
-                'reachable' => Field::bool('Reachable', false, criticalWhen: false),
-                'version' => Field::varchar('Version', ''),
-                'distribution' => Field::varchar('Distribution', ''),
+            return ['general' => $this->section->facts('general', 'General', $this->getDescription(), [
+                'reachable' => $this->field->bool('Reachable', false, criticalWhen: false),
+                'version' => $this->field->varchar('Version', ''),
+                'distribution' => $this->field->varchar('Distribution', ''),
             ])];
         }
     }

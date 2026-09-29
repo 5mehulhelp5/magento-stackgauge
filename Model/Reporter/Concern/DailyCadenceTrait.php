@@ -16,6 +16,9 @@ use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
  */
 trait DailyCadenceTrait
 {
+    /**
+     * Always DeclaresCadenceInterface::CADENCE_DAILY.
+     */
     public function getCadence(): string
     {
         return DeclaresCadenceInterface::CADENCE_DAILY;

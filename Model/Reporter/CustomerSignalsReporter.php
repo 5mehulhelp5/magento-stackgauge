@@ -14,40 +14,64 @@ use StackNuts\StackGauge\Model\Reporter\Concern\CommerceSectionTrait;
 use StackNuts\StackGauge\Model\Reporter\Concern\DailyCadenceTrait;
 use StackNuts\StackGauge\Model\Util\Clock;
 
-final class CustomerSignalsReporter implements ReporterInterface, DeclaresCadenceInterface, DeclaresSectionInterface
+class CustomerSignalsReporter implements ReporterInterface, DeclaresCadenceInterface, DeclaresSectionInterface
 {
     use DailyCadenceTrait;
     use CommerceSectionTrait;
 
     private const SCHEMA_VERSION = '1.0';
 
+    /**
+     * @param CustomerCollectionFactory $customerCollectionFactory
+     * @param OrderCollectionFactory $orderCollectionFactory
+     * @param Clock $clock
+     * @param Field $field
+     * @param Section $section
+     */
     public function __construct(
         private readonly CustomerCollectionFactory $customerCollectionFactory,
         private readonly OrderCollectionFactory $orderCollectionFactory,
-        private readonly Clock $clock
+        private readonly Clock $clock,
+        private readonly Field $field,
+        private readonly Section $section
     ) {
     }
 
+    /**
+     * Payload key for the customer-signals reporter.
+     */
     public function getName(): string
     {
         return 'customers';
     }
 
+    /**
+     * Human-readable label for the customer-signals reporter block.
+     */
     public function getLabel(): string
     {
         return 'Customer Signals';
     }
 
+    /**
+     * One-line summary of what the customer-signals reporter covers, shown on the dashboard alongside the label.
+     */
     public function getDescription(): string
     {
         return 'Counts of customers and recent activity.';
     }
 
+    /**
+     * Schema version for this reporter's payload shape.
+     */
     public function getSchemaVersion(): string
     {
         return self::SCHEMA_VERSION;
     }
 
+    /**
+     * Reports total and 30-day-new customer counts, plus a 30-day split of guest vs logged-in orders.
+     */
     public function getStatus(): array
     {
         $totalCustomers = $this->customerCollectionFactory->create()->getSize();
@@ -68,11 +92,11 @@ final class CustomerSignalsReporter implements ReporterInterface, DeclaresCadenc
 
         $loggedInOrders = max(0, $totalOrders - $guestOrders);
 
-        return ['general' => Section::facts('general', 'General', $this->getDescription(), [
-            'total_customers' => Field::number('Total customers', $totalCustomers),
-            'new_customers_30d' => Field::number('New customers (30d)', $newCustomers),
-            'guest_orders_30d' => Field::number('Guest orders (30d)', $guestOrders),
-            'logged_in_orders_30d' => Field::number('Logged-in orders (30d)', $loggedInOrders),
+        return ['general' => $this->section->facts('general', 'General', $this->getDescription(), [
+            'total_customers' => $this->field->number('Total customers', $totalCustomers),
+            'new_customers_30d' => $this->field->number('New customers (30d)', $newCustomers),
+            'guest_orders_30d' => $this->field->number('Guest orders (30d)', $guestOrders),
+            'logged_in_orders_30d' => $this->field->number('Logged-in orders (30d)', $loggedInOrders),
         ])];
     }
 }

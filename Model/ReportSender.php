@@ -20,6 +20,12 @@ use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
  */
 class ReportSender
 {
+    /**
+     * @param Config $config
+     * @param PayloadBuilder $payloadBuilder
+     * @param Transport $transport
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly Config $config,
         private readonly PayloadBuilder $payloadBuilder,
@@ -29,6 +35,9 @@ class ReportSender
     }
 
     /**
+     * The full-collection report payload for the given cadence tier, without sending it.
+     *
+     * @param string $cadence One of Api\DeclaresCadenceInterface::CADENCE_*.
      * @return array<string, mixed>
      */
     public function buildPayload(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
@@ -37,6 +46,8 @@ class ReportSender
     }
 
     /**
+     * The config-sync payload, without sending it.
+     *
      * @return array<string, mixed>
      */
     public function buildConfigSync(): array
@@ -46,6 +57,8 @@ class ReportSender
 
     /**
      * Respects the admin "Enabled" toggle - this is what the hourly/daily cron jobs call.
+     *
+     * @param string $cadence One of Api\DeclaresCadenceInterface::CADENCE_*.
      */
     public function send(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): bool
     {
@@ -73,6 +86,8 @@ class ReportSender
      * and API key to be configured for the actual HTTP send (enforced by Transport) - but
      * the payload is built and logged either way, so with Log Level set to "Info" the report
      * is visible in var/log/stacknuts_stackgauge.log even without a configured endpoint.
+     *
+     * @param string $cadence One of Api\DeclaresCadenceInterface::CADENCE_*.
      */
     public function sendNow(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): bool
     {

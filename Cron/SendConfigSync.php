@@ -22,12 +22,19 @@ use Throwable;
  */
 class SendConfigSync
 {
+    /**
+     * @param ReportSender $reportSender
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         private readonly ReportSender $reportSender,
         private readonly LoggerInterface $logger
     ) {
     }
 
+    /**
+     * Runs the daily config-sync job - see this class's own docblock for why it exists.
+     */
     public function execute(): void
     {
         try {

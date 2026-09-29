@@ -15,8 +15,13 @@ namespace StackNuts\StackGauge\Api\Field;
  * others are good-when-false. Left null (the default) for fields with no health meaning at
  * all (e.g. a module's "Enabled" flag), which the dashboard renders as a neutral badge.
  */
-final class BoolField implements FieldInterface
+class BoolField implements FieldInterface
 {
+    /**
+     * @param string $label
+     * @param bool $value
+     * @param bool|null $criticalWhen See this class's own docblock for what this declares.
+     */
     public function __construct(
         private readonly string $label,
         private readonly bool $value,
@@ -24,21 +29,35 @@ final class BoolField implements FieldInterface
     ) {
     }
 
+    /**
+     * Always Field::TYPE_BOOL.
+     */
     public function getType(): string
     {
         return Field::TYPE_BOOL;
     }
 
+    /**
+     * The label passed to the constructor.
+     */
     public function getLabel(): string
     {
         return $this->label;
     }
 
+    /**
+     * The value passed to the constructor.
+     */
     public function getValue(): bool
     {
         return $this->value;
     }
 
+    /**
+     * Wire representation of this field.
+     *
+     * @return array{type: string, label: string, value: bool, critical_when?: bool}
+     */
     public function jsonSerialize(): array
     {
         $data = ['type' => $this->getType(), 'label' => $this->label, 'value' => $this->value];
