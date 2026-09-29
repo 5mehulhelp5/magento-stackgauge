@@ -22,32 +22,58 @@ class PatchReporterTest extends TestCase
      */
     private string $binary;
 
+    /**
+     * @var string
+     */
+    private string $root;
+
     protected function setUp(): void
     {
-        $root = sys_get_temp_dir() . '/patch-reporter-test-' . uniqid();
-        mkdir($root . '/vendor/bin', 0777, true);
-        $this->binary = $root . '/vendor/bin/patch-status';
+        $this->root = sys_get_temp_dir() . '/patch-reporter-test-' . uniqid();
+        mkdir($this->root . '/vendor/bin', 0777, true);
+        mkdir($this->root . '/var', 0777, true);
+        $this->binary = $this->root . '/vendor/bin/patch-status';
         file_put_contents($this->binary, "#!/bin/sh\n");
         chmod($this->binary, 0755);
     }
 
     protected function tearDown(): void
     {
+        $cache = $this->root . '/var/stackgauge/patch_status_cache.json';
+        if (is_file($cache)) {
+            unlink($cache);
+        }
+        if (is_dir($this->root . '/var/stackgauge')) {
+            rmdir($this->root . '/var/stackgauge');
+        }
+        if (is_dir($this->root . '/var')) {
+            rmdir($this->root . '/var');
+        }
         if (is_file($this->binary)) {
             unlink($this->binary);
         }
     }
 
-    private function reporter(string $shellOutput): PatchReporter
+    /**
+     * @param Shell|null $shell defaults to a mock whose execute() always returns $shellOutput
+     */
+    private function reporter(string $shellOutput, ?Shell $shell = null): PatchReporter
     {
-        $read = $this->createMock(ReadInterface::class);
-        $read->method('getAbsolutePath')->willReturn(dirname(dirname(dirname($this->binary))) . '/');
+        $rootRead = $this->createMock(ReadInterface::class);
+        $rootRead->method('getAbsolutePath')->willReturn($this->root . '/');
+
+        $varRead = $this->createMock(ReadInterface::class);
+        $varRead->method('getAbsolutePath')->willReturn($this->root . '/var/');
 
         $filesystem = $this->createMock(Filesystem::class);
-        $filesystem->method('getDirectoryRead')->with(DirectoryList::ROOT)->willReturn($read);
+        $filesystem->method('getDirectoryRead')->willReturnCallback(
+            fn (string $directoryType) => $directoryType === DirectoryList::VAR_DIR ? $varRead : $rootRead
+        );
 
-        $shell = $this->createMock(Shell::class);
-        $shell->method('execute')->willReturn($shellOutput);
+        if ($shell === null) {
+            $shell = $this->createMock(Shell::class);
+            $shell->method('execute')->willReturn($shellOutput);
+        }
 
         return new PatchReporter(
             $filesystem,
@@ -127,5 +153,65 @@ class PatchReporterTest extends TestCase
 
         $this->assertFalse($status['general']->getFields()['detectable']->getValue());
         $this->assertSame([], $status['applied_patches']->getRows());
+        $this->assertFileDoesNotExist($this->root . '/var/stackgauge/patch_status_cache.json');
+    }
+
+    public function testUnrecognizedOutputIsNeverCached(): void
+    {
+        $this->reporter("Some output patch-status doesn't recognize as JSON.\n")->getStatus();
+
+        $this->assertFileDoesNotExist($this->root . '/var/stackgauge/patch_status_cache.json');
+    }
+
+    public function testSecondCallWithinTtlReusesCacheWithoutReRunningShell(): void
+    {
+        $output = (new Json())->serialize(['applied_patches' => ['ACSD-47259']]);
+
+        $shell = $this->createMock(Shell::class);
+        $shell->expects($this->once())->method('execute')->willReturn($output);
+
+        $reporter = $this->reporter($output, $shell);
+
+        $first = $reporter->getStatus();
+        $second = $reporter->getStatus();
+
+        $this->assertSame('ACSD-47259', $first['applied_patches']->getRows()[0]->getValue()['patch_id']->getValue());
+        $this->assertSame('ACSD-47259', $second['applied_patches']->getRows()[0]->getValue()['patch_id']->getValue());
+    }
+
+    public function testStaleCacheTriggersAFreshShellExecution(): void
+    {
+        $cachePath = $this->root . '/var/stackgauge/patch_status_cache.json';
+        mkdir(dirname($cachePath), 0777, true);
+        file_put_contents($cachePath, (new Json())->serialize([
+            'recorded_at' => time() - 90000,
+            'data' => ['applied_patches' => ['STALE-ID']],
+        ]));
+
+        $output = (new Json())->serialize(['applied_patches' => ['FRESH-ID']]);
+        $shell = $this->createMock(Shell::class);
+        $shell->expects($this->once())->method('execute')->willReturn($output);
+
+        $status = $this->reporter($output, $shell)->getStatus();
+
+        $this->assertSame('FRESH-ID', $status['applied_patches']->getRows()[0]->getValue()['patch_id']->getValue());
+    }
+
+    public function testCorruptCacheIsTreatedAsAMiss(): void
+    {
+        $cachePath = $this->root . '/var/stackgauge/patch_status_cache.json';
+        mkdir(dirname($cachePath), 0777, true);
+        file_put_contents($cachePath, 'not valid json{{{');
+
+        $output = (new Json())->serialize(['applied_patches' => ['RECOVERED-ID']]);
+        $shell = $this->createMock(Shell::class);
+        $shell->expects($this->once())->method('execute')->willReturn($output);
+
+        $status = $this->reporter($output, $shell)->getStatus();
+
+        $this->assertSame(
+            'RECOVERED-ID',
+            $status['applied_patches']->getRows()[0]->getValue()['patch_id']->getValue()
+        );
     }
 }

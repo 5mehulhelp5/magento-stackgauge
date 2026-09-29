@@ -33,6 +33,14 @@ use Throwable;
  * explicitly since the tool's own output format isn't guaranteed stable, and every field from
  * the decoded payload is read defensively (missing/wrong-typed keys are skipped, not fatal)
  * in case a future release reshapes it.
+ *
+ * patch-status does a genuine dry-run patch-application check (fetches each applicable
+ * patch's diff, runs `patch --dry-run` against live core files), so a well-formed result is
+ * cached for CACHE_TTL_SECONDS and reused rather than re-run on every getStatus() call -
+ * nothing upstream of this reporter (cadence, "Send Now", the CLI) throttles how often
+ * getStatus() itself can be invoked. Only a successfully decoded result is cached; the
+ * "binary missing" and "unrecognized output" branches are cheap already and stay live so a
+ * stale cached "not detectable" reading can never outlive the binary reappearing.
  */
 class PatchReporter implements ReporterInterface, DeclaresCadenceInterface, DeclaresSectionInterface
 {
@@ -41,6 +49,8 @@ class PatchReporter implements ReporterInterface, DeclaresCadenceInterface, Decl
 
     private const SCHEMA_VERSION = '1.0';
     private const MAX_UNRECOGNIZED_OUTPUT_LENGTH = 3600;
+    private const CACHE_TTL_SECONDS = 86400;
+    private const CACHE_RELATIVE_PATH = 'stackgauge/patch_status_cache.json';
 
     /**
      * @param Filesystem $filesystem
@@ -101,6 +111,11 @@ class PatchReporter implements ReporterInterface, DeclaresCadenceInterface, Decl
      */
     public function getStatus(): array
     {
+        $cached = $this->readCache();
+        if ($cached !== null) {
+            return $this->result(true, null, $cached);
+        }
+
         $binary = rtrim($this->filesystem->getDirectoryRead(DirectoryList::ROOT)->getAbsolutePath(), '/')
             . '/vendor/bin/patch-status';
 
@@ -130,7 +145,82 @@ class PatchReporter implements ReporterInterface, DeclaresCadenceInterface, Decl
             return $this->result(true, substr(trim($output), 0, self::MAX_UNRECOGNIZED_OUTPUT_LENGTH));
         }
 
+        $this->writeCache($data);
+
         return $this->result(true, null, $data);
+    }
+
+    /**
+     * Reads a still-fresh cached patch-status result, if one exists.
+     *
+     * Never throws - a missing, corrupt, stale or wrong-shaped cache file is treated the same
+     * as no cache at all, since the caller falls back to a live run either way.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function readCache(): ?array
+    {
+        try {
+            $path = $this->cachePath();
+
+            if (!$this->filesystemDriver->isExists($path)) {
+                return null;
+            }
+
+            $decoded = $this->json->unserialize($this->filesystemDriver->fileGetContents($path));
+
+            if (!is_array($decoded)
+                || !is_int($decoded['recorded_at'] ?? null)
+                || !is_array($decoded['data'] ?? null)
+            ) {
+                return null;
+            }
+
+            if (time() - $decoded['recorded_at'] >= self::CACHE_TTL_SECONDS) {
+                return null;
+            }
+
+            return $decoded['data'];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Best-effort write of a fresh patch-status result to the cache.
+     *
+     * A write failure must not fail this reporter - the next call simply runs patch-status
+     * live again.
+     *
+     * @param array<string,mixed> $data
+     * @return void
+     */
+    private function writeCache(array $data): void
+    {
+        try {
+            $path = $this->cachePath();
+            $dir = $this->filesystemDriver->getParentDirectory($path);
+
+            if (!$this->filesystemDriver->isDirectory($dir)) {
+                $this->filesystemDriver->createDirectory($dir);
+            }
+
+            $this->filesystemDriver->filePutContents(
+                $path,
+                $this->json->serialize(['recorded_at' => time(), 'data' => $data])
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning('StackGauge: could not write patch-status cache: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Absolute path to the cached patch-status result, under var/.
+     */
+    private function cachePath(): string
+    {
+        return rtrim($this->filesystem->getDirectoryRead(DirectoryList::VAR_DIR)->getAbsolutePath(), '/')
+            . '/' . self::CACHE_RELATIVE_PATH;
     }
 
     /**
