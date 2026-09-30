@@ -35,6 +35,7 @@
                 <item name="composer" xsi:type="object">StackNuts\StackGauge\Model\Reporter\ComposerReporter</item>
                 <item name="db_schema" xsi:type="object">StackNuts\StackGauge\Model\Reporter\DbSchemaReporter</item>
                 <item name="patches" xsi:type="object">StackNuts\StackGauge\Model\Reporter\PatchReporter</item>
+                <item name="patch_installer" xsi:type="object">StackNuts\StackGauge\Model\Reporter\PatchInstallerReporter</item>
                 <item name="indexers" xsi:type="object">StackNuts\StackGauge\Model\Reporter\IndexerReporter</item>
                 <item name="cron" xsi:type="object">StackNuts\StackGauge\Model\Reporter\CronReporter</item>
                 <item name="cache" xsi:type="object">StackNuts\StackGauge\Model\Reporter\CacheReporter</item>
@@ -71,6 +72,11 @@
         </arguments>
     </type>
     <type name="StackNuts\StackGauge\Model\Reporter\PatchReporter">
+        <arguments>
+            <argument name="logger" xsi:type="object">StackNuts\StackGauge\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="StackNuts\StackGauge\Model\Reporter\PatchInstallerReporter">
         <arguments>
             <argument name="logger" xsi:type="object">StackNuts\StackGauge\Logger\Logger</argument>
         </arguments>

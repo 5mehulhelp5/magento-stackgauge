@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace StackNuts\StackGauge\Test\Unit\Model;
 
-use Magento\Framework\Module\ModuleListInterface;
 use PHPUnit\Framework\TestCase;
 use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 use StackNuts\StackGauge\Api\MetricDefinition;
@@ -16,6 +15,7 @@ use StackNuts\StackGauge\Model\Config;
 use StackNuts\StackGauge\Model\MetricCatalogPool;
 use StackNuts\StackGauge\Model\PayloadBuilder;
 use StackNuts\StackGauge\Model\ReporterPool;
+use StackNuts\StackGauge\Model\Util\ComposerLockReader;
 
 class PayloadBuilderTest extends TestCase
 {
@@ -23,14 +23,26 @@ class PayloadBuilderTest extends TestCase
         ?ReporterPool $reporterPool = null,
         ?MetricCatalogPool $metricCatalogPool = null,
         ?Config $config = null,
-        ?ModuleListInterface $moduleList = null
+        ?ComposerLockReader $composerLockReader = null
     ): PayloadBuilder {
         $reporterPool ??= $this->createStub(ReporterPool::class);
         $metricCatalogPool ??= $this->createStub(MetricCatalogPool::class);
         $config ??= $this->createStub(Config::class);
-        $moduleList ??= $this->createStub(ModuleListInterface::class);
+        $composerLockReader ??= $this->createStub(ComposerLockReader::class);
 
-        return new PayloadBuilder($reporterPool, $metricCatalogPool, $config, $moduleList);
+        return new PayloadBuilder($reporterPool, $metricCatalogPool, $config, $composerLockReader);
+    }
+
+    private function composerLockReaderWithModuleVersion(?string $version): ComposerLockReader
+    {
+        $reader = $this->createStub(ComposerLockReader::class);
+        $reader->method('getDecoded')->willReturn($version === null ? ['packages' => []] : [
+            'packages' => [
+                ['name' => 'stacknuts/magento-stackgauge', 'version' => $version],
+            ],
+        ]);
+
+        return $reader;
     }
 
     public function testBuildAssemblesTheFullEnvelope(): void
@@ -43,15 +55,14 @@ class PayloadBuilderTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getSiteId')->willReturn('site-123');
 
-        $moduleList = $this->createStub(ModuleListInterface::class);
-        $moduleList->method('getOne')->willReturn(['setup_version' => '1.0.0']);
+        $composerLockReader = $this->composerLockReaderWithModuleVersion('v0.1.0');
 
-        $payload = $this->builder($reporterPool, null, $config, $moduleList)->build();
+        $payload = $this->builder($reporterPool, null, $config, $composerLockReader)->build();
 
         $this->assertSame('full', $payload['type']);
         $this->assertSame(DeclaresCadenceInterface::CADENCE_HOURLY, $payload['cadence']);
         $this->assertSame('1.0', $payload['schema_version']);
-        $this->assertSame('1.0.0', $payload['module_version']);
+        $this->assertSame('v0.1.0', $payload['module_version']);
         $this->assertSame(['identifier' => 'site-123'], $payload['site']);
         $this->assertSame(['core' => ['schema_version' => '1.0', 'edition' => 'Community']], $payload['reporters']);
         $this->assertMatchesRegularExpression(
@@ -68,10 +79,9 @@ class PayloadBuilderTest extends TestCase
         $config = $this->createStub(Config::class);
         $config->method('getSiteId')->willReturn(null);
 
-        $moduleList = $this->createStub(ModuleListInterface::class);
-        $moduleList->method('getOne')->willReturn([]);
+        $composerLockReader = $this->composerLockReaderWithModuleVersion(null);
 
-        $payload = $this->builder($reporterPool, null, $config, $moduleList)->build();
+        $payload = $this->builder($reporterPool, null, $config, $composerLockReader)->build();
 
         $this->assertNull($payload['module_version']);
         $this->assertNull($payload['site']['identifier']);

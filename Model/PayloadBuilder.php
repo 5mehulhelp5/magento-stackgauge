@@ -9,9 +9,9 @@ declare(strict_types=1);
 namespace StackNuts\StackGauge\Model;
 
 use DateTimeImmutable;
-use Magento\Framework\Module\ModuleListInterface;
 use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 use StackNuts\StackGauge\Api\MetricDefinition;
+use StackNuts\StackGauge\Model\Util\ComposerLockReader;
 
 /**
  * Assembles the full-collection report envelope and the smaller config-sync envelope.
@@ -21,19 +21,19 @@ use StackNuts\StackGauge\Api\MetricDefinition;
 class PayloadBuilder
 {
     private const SCHEMA_VERSION = '1.0';
-    private const MODULE_NAME = 'StackNuts_StackGauge';
+    private const PACKAGE_NAME = 'stacknuts/magento-stackgauge';
 
     /**
      * @param ReporterPool $reporterPool
      * @param MetricCatalogPool $metricCatalogPool
      * @param Config $config
-     * @param ModuleListInterface $moduleList
+     * @param ComposerLockReader $composerLockReader
      */
     public function __construct(
         private readonly ReporterPool $reporterPool,
         private readonly MetricCatalogPool $metricCatalogPool,
         private readonly Config $config,
-        private readonly ModuleListInterface $moduleList
+        private readonly ComposerLockReader $composerLockReader
     ) {
     }
 
@@ -83,12 +83,23 @@ class PayloadBuilder
     }
 
     /**
-     * This module's own setup_version, or null if the module isn't registered.
+     * This module's own real release version, from its composer.lock entry - not
+     * module.xml's setup_version, which is a DB-schema-migration marker unrelated to which
+     * release is actually installed (this module has no schema of its own, so that value
+     * would never change regardless of release). Null if composer.lock is missing/malformed
+     * or the package isn't in it (e.g. a path-repo dev install outside normal Composer use).
      */
     private function getModuleVersion(): ?string
     {
-        $module = $this->moduleList->getOne(self::MODULE_NAME);
+        $decoded = $this->composerLockReader->getDecoded();
+        $packages = is_array($decoded) && is_array($decoded['packages'] ?? null) ? $decoded['packages'] : [];
 
-        return $module['setup_version'] ?? null;
+        foreach ($packages as $package) {
+            if (($package['name'] ?? null) === self::PACKAGE_NAME) {
+                return is_string($package['version'] ?? null) ? $package['version'] : null;
+            }
+        }
+
+        return null;
     }
 }
