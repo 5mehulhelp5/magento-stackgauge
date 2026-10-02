@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © StackNuts. All rights reserved.
+ * See LICENSE for license details.
+ */
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <!-- One row per monitored log file name (not a full path - every file StackGauge reads
+         lives under var/log via DirectoryList::LOG, so the name alone is already a stable,
+         unique key). Lets LogReporter read only newly-appended bytes on each run instead of
+         streaming the whole file every time - see Model\LogOffsetStore. -->
+    <table name="stacknuts_stackgauge_log_offset" resource="default" engine="innodb"
+           comment="StackGauge Log Read Offset">
+        <column xsi:type="int" name="offset_id" unsigned="true" nullable="false" identity="true"
+                comment="Offset ID"/>
+        <column xsi:type="varchar" name="file_path" nullable="false" length="190"
+                comment="Log file name, relative to var/log"/>
+        <column xsi:type="bigint" name="byte_offset" unsigned="true" nullable="false" default="0"
+                comment="Byte position last read up to"/>
+        <column xsi:type="int" name="running_count" unsigned="true" nullable="false" default="0"
+                comment="Running cumulative match count for reporters that track one (e.g. exception occurrences) - unused (always 0) for files that don't track a count"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"
+                comment="Last Updated At"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="offset_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="STACKNUTS_STACKGAUGE_LOG_OFFSET_FILE_PATH">
+            <column name="file_path"/>
+        </constraint>
+    </table>
+</schema>

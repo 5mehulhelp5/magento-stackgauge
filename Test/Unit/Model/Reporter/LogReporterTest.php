@@ -15,38 +15,64 @@ use PHPUnit\Framework\TestCase;
 use StackNuts\StackGauge\Api\Field\Field;
 use StackNuts\StackGauge\Api\Section\Section;
 use StackNuts\StackGauge\Model\Config;
+use StackNuts\StackGauge\Model\LogOffsetStore;
 use StackNuts\StackGauge\Model\Reporter\LogReporter;
 
 class LogReporterTest extends TestCase
 {
     /**
-     * @param array<string, string> $contentsByFile
+     * $contentsByFile is captured by reference into the directory mock's callbacks, so a test
+     * can mutate it between two getStatus() calls on the same $reporter to simulate a file
+     * growing (or being rotated/truncated) between runs.
+     *
+     * @param array<string, string> $contentsByFile filename => content, mutable by reference
      * @param array<string, string> $monitoredLogFiles filename => display name
      */
-    private function reporter(array $contentsByFile, array $monitoredLogFiles = []): LogReporter
-    {
+    private function reporter(
+        array &$contentsByFile,
+        array $monitoredLogFiles = [],
+        ?LogOffsetStore $offsetStore = null
+    ): LogReporter {
         $filesystem = $this->createMock(Filesystem::class);
         $logDir = $this->createMock(ReadInterface::class);
         $filesystem->method('getDirectoryRead')->with(DirectoryList::LOG)->willReturn($logDir);
 
         $logDir->method('isExist')->willReturnCallback(
-            fn (string $file) => isset($contentsByFile[$file])
+            function (string $file) use (&$contentsByFile): bool {
+                return isset($contentsByFile[$file]);
+            }
         );
         // openFile(), not readFile() - LogReporter streams line-by-line so it never loads a
         // whole (potentially huge) log file into memory. See FakeLineStream below.
         $logDir->method('openFile')->willReturnCallback(
-            fn (string $file) => new FakeLineStream($contentsByFile[$file] ?? '')
+            function (string $file) use (&$contentsByFile): FakeLineStream {
+                return new FakeLineStream($contentsByFile[$file] ?? '');
+            }
+        );
+        // Used to detect rotation/truncation: a stored offset past the current size means
+        // "start over from byte 0" - see LogReporter::streamNewLines().
+        $logDir->method('stat')->willReturnCallback(
+            function (string $file) use (&$contentsByFile): array {
+                return ['size' => strlen($contentsByFile[$file] ?? '')];
+            }
         );
 
         $config = $this->createMock(Config::class);
         $config->method('getMonitoredLogFiles')->willReturn($monitoredLogFiles);
 
-        return new LogReporter($filesystem, $config, new Field(), new Section());
+        return new LogReporter(
+            $filesystem,
+            $config,
+            $offsetStore ?? new FakeLogOffsetStore(),
+            new Field(),
+            new Section()
+        );
     }
 
     public function testEmptyWhenLogsMissing(): void
     {
-        $status = $this->reporter([])->getStatus();
+        $contents = [];
+        $status = $this->reporter($contents)->getStatus();
 
         $this->assertArrayHasKey('system_new_lines', $status['general']->getFields());
         $this->assertSame(0, $status['general']->getFields()['system_new_lines']->getValue());
@@ -56,10 +82,11 @@ class LogReporterTest extends TestCase
 
     public function testParsesExceptionMessages(): void
     {
-        $status = $this->reporter([
+        $contents = [
             'system.log' => "line1\nline2\n",
             'exception.log' => "RuntimeException: Something went wrong\nAnotherException: oops\n",
-        ])->getStatus();
+        ];
+        $status = $this->reporter($contents)->getStatus();
 
         $this->assertSame(2, $status['general']->getFields()['system_new_lines']->getValue());
         $recent = $status['recent_exceptions']->getRows();
@@ -73,10 +100,8 @@ class LogReporterTest extends TestCase
      */
     public function testExceptionParsingIsUnaffectedByWhatsConfiguredForTailSections(): void
     {
-        $status = $this->reporter(
-            ['exception.log' => "RuntimeException: Something went wrong\n"],
-            monitoredLogFiles: []
-        )->getStatus();
+        $contents = ['exception.log' => "RuntimeException: Something went wrong\n"];
+        $status = $this->reporter($contents, monitoredLogFiles: [])->getStatus();
 
         $this->assertCount(1, $status['recent_exceptions']->getRows());
         $this->assertArrayNotHasKey('tail_exception_log', $status);
@@ -87,7 +112,7 @@ class LogReporterTest extends TestCase
         // 7 total occurrences (with a repeat), but "recent" caps at 5 unique messages -
         // exception_count should reflect the 7, not the capped/deduped list's size. Each
         // message needs 5+ chars to satisfy the extraction regex's own minimum.
-        $status = $this->reporter([
+        $contents = [
             'exception.log' => 'Exception: message one
 Exception: message two
 Exception: message three
@@ -95,7 +120,8 @@ Exception: message four
 Exception: message five
 Exception: message six
 Exception: message one',
-        ])->getStatus();
+        ];
+        $status = $this->reporter($contents)->getStatus();
 
         $this->assertSame(7, $status['general']->getFields()['exception_count']->getValue());
         $this->assertCount(5, $status['recent_exceptions']->getRows());
@@ -103,7 +129,8 @@ Exception: message one',
 
     public function testDeclaresExceptionCountAsATrackableMetric(): void
     {
-        $metrics = $this->reporter([])->getTrackableMetrics();
+        $contents = [];
+        $metrics = $this->reporter($contents)->getTrackableMetrics();
 
         $this->assertCount(1, $metrics);
         $this->assertSame('logs.exception_count', $metrics[0]->getMetricKey());
@@ -111,17 +138,16 @@ Exception: message one',
 
     public function testNoTailSectionsWhenNothingIsConfigured(): void
     {
-        $status = $this->reporter(['system.log' => "a line\n"], monitoredLogFiles: [])->getStatus();
+        $contents = ['system.log' => "a line\n"];
+        $status = $this->reporter($contents, monitoredLogFiles: [])->getStatus();
 
         $this->assertSame(['general', 'recent_exceptions'], array_keys($status));
     }
 
     public function testAConfiguredLogFileGetsATailSectionLabeledWithItsDisplayName(): void
     {
-        $status = $this->reporter(
-            ['system.log' => "first line\nsecond line\n"],
-            monitoredLogFiles: ['system.log' => 'System Log']
-        )->getStatus();
+        $contents = ['system.log' => "first line\nsecond line\n"];
+        $status = $this->reporter($contents, monitoredLogFiles: ['system.log' => 'System Log'])->getStatus();
 
         $this->assertArrayHasKey('tail_system_log', $status);
         $this->assertSame('System Log', $status['tail_system_log']->getLabel());
@@ -135,10 +161,8 @@ Exception: message one',
     public function testTailIsCappedAtTheMostRecentFiftyLines(): void
     {
         $lines = array_map(fn (int $i) => "line {$i}", range(1, 60));
-        $status = $this->reporter(
-            ['system.log' => implode("\n", $lines)],
-            monitoredLogFiles: ['system.log' => 'System Log']
-        )->getStatus();
+        $contents = ['system.log' => implode("\n", $lines)];
+        $status = $this->reporter($contents, monitoredLogFiles: ['system.log' => 'System Log'])->getStatus();
 
         $rows = $status['tail_system_log']->getRows();
         $this->assertCount(50, $rows);
@@ -148,8 +172,9 @@ Exception: message one',
 
     public function testACustomConfiguredLogFileGetsItsOwnTailSection(): void
     {
+        $contents = ['payment-gateway.log' => "gateway line one\ngateway line two\n"];
         $status = $this->reporter(
-            ['payment-gateway.log' => "gateway line one\ngateway line two\n"],
+            $contents,
             monitoredLogFiles: ['payment-gateway.log' => 'Payment Gateway']
         )->getStatus();
 
@@ -170,10 +195,8 @@ Exception: message one',
     public function testTailedLinesWithInvalidUtf8DontBreakSerialization(): void
     {
         $badLine = "Bearer \xD1\x40 is not valid header value.";
-        $status = $this->reporter(
-            ['system.log' => "ok line\n{$badLine}\n"],
-            monitoredLogFiles: ['system.log' => 'System Log']
-        )->getStatus();
+        $contents = ['system.log' => "ok line\n{$badLine}\n"];
+        $status = $this->reporter($contents, monitoredLogFiles: ['system.log' => 'System Log'])->getStatus();
 
         $lines = array_map(
             fn ($row) => $row->getValue()['line']->getValue(),
@@ -195,13 +218,97 @@ Exception: message one',
         $lineCount = 200000;
         $content = implode("\n", array_map(fn (int $i) => "line {$i}", range(1, $lineCount)));
 
-        $status = $this->reporter(
-            ['big.log' => $content],
-            monitoredLogFiles: ['big.log' => 'Big Log']
-        )->getStatus();
+        $contents = ['big.log' => $content];
+        $status = $this->reporter($contents, monitoredLogFiles: ['big.log' => 'Big Log'])->getStatus();
 
         $rows = $status['tail_big_log']->getRows();
         $this->assertCount(50, $rows);
         $this->assertSame("line {$lineCount}", $rows[49]->getValue()['line']->getValue());
+    }
+
+    /**
+     * The core incremental-read promise: a second run against an unchanged file must see
+     * nothing new, and a second run after an append must see only what was appended - not the
+     * whole file again.
+     */
+    public function testSecondRunOnlySeesLinesAppendedSinceTheFirst(): void
+    {
+        $offsetStore = new FakeLogOffsetStore();
+        $contents = ['system.log' => "line one\nline two\n"];
+        $reporter = $this->reporter(
+            $contents,
+            monitoredLogFiles: ['system.log' => 'System Log'],
+            offsetStore: $offsetStore
+        );
+
+        $first = $reporter->getStatus();
+        $this->assertSame(2, $first['general']->getFields()['system_new_lines']->getValue());
+
+        $unchanged = $reporter->getStatus();
+        $this->assertSame(0, $unchanged['general']->getFields()['system_new_lines']->getValue());
+        $this->assertSame([], $unchanged['tail_system_log']->getRows());
+
+        $contents['system.log'] .= "line three\n";
+        $second = $reporter->getStatus();
+
+        $this->assertSame(1, $second['general']->getFields()['system_new_lines']->getValue());
+        $lines = array_map(
+            fn ($row) => $row->getValue()['line']->getValue(),
+            $second['tail_system_log']->getRows()
+        );
+        $this->assertSame(['line three'], $lines);
+    }
+
+    /**
+     * exception_count is the one field that must keep reading as a stable running total across
+     * runs (see LogReporter's own docblock on AGGREGATION_DELTA) - unlike everything else in
+     * this reporter, it should NOT reset to "just what's new" each run.
+     */
+    public function testExceptionCountCarriesForwardAsARunningTotalAcrossRuns(): void
+    {
+        $offsetStore = new FakeLogOffsetStore();
+        $contents = ['exception.log' => "RuntimeException: first\n"];
+        $reporter = $this->reporter($contents, offsetStore: $offsetStore);
+
+        $first = $reporter->getStatus();
+        $this->assertSame(1, $first['general']->getFields()['exception_count']->getValue());
+
+        $contents['exception.log'] .= "RuntimeException: second\nRuntimeException: third\n";
+        $second = $reporter->getStatus();
+
+        $this->assertSame(3, $second['general']->getFields()['exception_count']->getValue());
+        // "recent" is scoped to what's new this run, same as the tail sections - the 2 new
+        // ones, not all 3 seen across both runs.
+        $this->assertCount(2, $second['recent_exceptions']->getRows());
+    }
+
+    /**
+     * A stored offset pointing past the file's current size means it was rotated or truncated
+     * since last read - this must be treated as a fresh file read from byte 0, not a crash or
+     * a silently stalled file that never shows anything new again.
+     */
+    public function testRotatedFileIsReReadFromScratchRatherThanStalling(): void
+    {
+        $offsetStore = new FakeLogOffsetStore();
+        $oldLines = implode("\n", array_map(fn (int $i) => "old line {$i}", range(1, 20)));
+        $contents = ['system.log' => $oldLines . "\n"];
+        $reporter = $this->reporter(
+            $contents,
+            monitoredLogFiles: ['system.log' => 'System Log'],
+            offsetStore: $offsetStore
+        );
+
+        $reporter->getStatus();
+
+        // Rotated: a brand-new, much smaller file - the old stored offset is now well past EOF.
+        $contents['system.log'] = "fresh line one\nfresh line two\n";
+        $afterRotation = $reporter->getStatus();
+
+        $this->assertSame(2, $afterRotation['general']->getFields()['system_new_lines']->getValue());
+        $lines = array_map(
+            fn ($row) => $row->getValue()['line']->getValue(),
+            $afterRotation['tail_system_log']->getRows()
+        );
+        $this->assertSame(['fresh line one', 'fresh line two'], $lines);
     }
 }

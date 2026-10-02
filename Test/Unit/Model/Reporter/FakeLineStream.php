@@ -10,14 +10,26 @@ namespace StackNuts\StackGauge\Test\Unit\Model\Reporter;
 
 /**
  * Minimal Filesystem\File\ReadInterface double: hands back $content one line at a time via
- * readLine()/eof(), the same contract LogReporter streams against. Methods it never calls
- * intentionally throw, so a future accidental whole-file read shows up as a test failure
- * rather than silently working against the fake.
+ * readLine()/eof(), the same contract LogReporter streams against. tell()/seek() work in
+ * terms of byte offsets exactly like a real file handle, so LogReporter's incremental-read
+ * logic (seek to the last saved offset, tell() the new one at the end) can be exercised for
+ * real rather than stubbed out. Methods LogReporter never calls intentionally throw, so a
+ * future accidental whole-file read shows up as a test failure rather than silently working
+ * against the fake.
  */
 class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
 {
     /** @var list<string> */
     private array $lines;
+
+    /**
+     * cumulativeBytes[$i] is the byte offset immediately after reading $i lines - i.e. where
+     * readLine() would next resume. Precomputed once so tell()/seek() don't need to care how
+     * each line's bytes were produced.
+     *
+     * @var list<int>
+     */
+    private array $cumulativeBytes;
 
     /**
      * @var int
@@ -32,6 +44,16 @@ class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
         // stream's eof() flips true right after the last real line, not one call later.
         if ($this->lines !== [] && end($this->lines) === '') {
             array_pop($this->lines);
+        }
+
+        $this->cumulativeBytes = [0];
+        $running = 0;
+        foreach ($this->lines as $line) {
+            // readLine() always re-appends "\n" below, so every line costs its length plus one -
+            // matching the real file on disk (this fake never represents content without
+            // trailing newlines on every line, which is fine for everything this reporter does).
+            $running += strlen($line) + 1;
+            $this->cumulativeBytes[] = $running;
         }
     }
 
@@ -49,6 +71,27 @@ class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
         return $this->lines[$this->position++] . "\n";
     }
 
+    public function tell()
+    {
+        return $this->cumulativeBytes[$this->position];
+    }
+
+    public function seek($length, $whence = SEEK_SET)
+    {
+        $index = array_search($length, $this->cumulativeBytes, true);
+
+        if ($index === false) {
+            throw new \LogicException(
+                "FakeLineStream::seek() called with offset {$length}, which doesn't land on a line "
+                . 'boundary - only offsets produced by this fake\'s own tell() are supported.'
+            );
+        }
+
+        $this->position = $index;
+
+        return $length;
+    }
+
     public function close()
     {
         return true;
@@ -61,7 +104,9 @@ class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
 
     public function readAll($flag = null, $context = null)
     {
-        throw new \LogicException('FakeLineStream does not support readAll() - LogReporter should only use readLine().');
+        throw new \LogicException(
+            'FakeLineStream does not support readAll() - LogReporter should only use readLine().'
+        );
     }
 
     public function readCsv($length = 0, $delimiter = ',', $enclosure = '"', $escape = "\0")
@@ -69,18 +114,11 @@ class FakeLineStream implements \Magento\Framework\Filesystem\File\ReadInterface
         throw new \LogicException('FakeLineStream does not support readCsv().');
     }
 
-    public function tell()
-    {
-        throw new \LogicException('FakeLineStream does not support tell().');
-    }
-
-    public function seek($length, $whence = SEEK_SET)
-    {
-        throw new \LogicException('FakeLineStream does not support seek().');
-    }
-
     public function stat()
     {
-        throw new \LogicException('FakeLineStream does not support stat().');
+        throw new \LogicException(
+            'FakeLineStream does not support stat() - LogReporter reads size via the directory-level '
+            . 'stat(), not the open file handle\'s.'
+        );
     }
 }

@@ -1,0 +1,15 @@
+{
+    "stacknuts_stackgauge_log_offset": {
+        "column": {
+            "offset_id": true,
+            "file_path": true,
+            "byte_offset": true,
+            "running_count": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "STACKNUTS_STACKGAUGE_LOG_OFFSET_FILE_PATH": true
+        }
+    }
+}
