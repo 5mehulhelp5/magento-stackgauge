@@ -14,7 +14,6 @@ use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 use StackNuts\StackGauge\Api\DeclaresSectionInterface;
 use StackNuts\StackGauge\Api\ReporterInterface;
 use StackNuts\StackGauge\Api\Section\SectionInterface;
-use StackNuts\StackGauge\Model\System\Config\Source\ReporterList;
 use Throwable;
 
 /**
@@ -41,7 +40,7 @@ class ReporterPool
     /**
      * Every registered reporter, as passed in via di.xml.
      *
-     * Not filtered by cadence or the admin "Enabled Reporters" toggle.
+     * Not filtered by cadence or the admin "Disabled Reporters" toggle.
      *
      * @return ReporterInterface[]
      */
@@ -61,7 +60,7 @@ class ReporterPool
      */
     public function collect(string $cadence = DeclaresCadenceInterface::CADENCE_HOURLY): array
     {
-        $enabledCodes = $this->config->getEnabledReporterCodes();
+        $disabledCodes = $this->config->getDisabledReporterCodes();
         $result = [];
 
         foreach ($this->reporters as $reporter) {
@@ -80,9 +79,11 @@ class ReporterPool
 
             $name = $reporter->getName();
 
-            // Only built-in reporter codes are subject to the admin toggle; a third-party
-            // reporter's name won't be in ReporterList::CODES, so it always runs.
-            if (in_array($name, ReporterList::CODES, true) && !in_array($name, $enabledCodes, true)) {
+            // Applies uniformly to every reporter, built-in or third-party - whichever name a
+            // reporter declares via getName() is exactly what the admin "Disabled Reporters"
+            // multiselect's options are built from (see Model\System\Config\Source\ReporterList),
+            // so there's no separate built-in-vs-third-party distinction to make here at all.
+            if (in_array($name, $disabledCodes, true)) {
                 continue;
             }
 

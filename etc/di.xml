@@ -39,7 +39,9 @@
                 <item name="indexers" xsi:type="object">StackNuts\StackGauge\Model\Reporter\IndexerReporter</item>
                 <item name="cron" xsi:type="object">StackNuts\StackGauge\Model\Reporter\CronReporter</item>
                 <item name="cache" xsi:type="object">StackNuts\StackGauge\Model\Reporter\CacheReporter</item>
-                <item name="security" xsi:type="object">StackNuts\StackGauge\Model\Reporter\SecurityReporter</item>
+                <!-- security, admin_accounts, config_hygiene moved to the optional
+                     StackNuts_StackGaugeSecurity companion module - see that module's di.xml
+                     and this module's README "Security module" section. -->
                 <item name="redis" xsi:type="object">StackNuts\StackGauge\Model\Reporter\RedisReporter</item>
                 <item name="search" xsi:type="object">StackNuts\StackGauge\Model\Reporter\SearchReporter</item>
                 <item name="rabbitmq" xsi:type="object">StackNuts\StackGauge\Model\Reporter\RabbitMqReporter</item>

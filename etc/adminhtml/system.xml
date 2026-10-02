@@ -34,9 +34,9 @@
                     <comment>Shared secret used to sign every report (X-StackGauge-Signature header) so the dashboard can verify it wasn't tampered with in transit. Stored encrypted.</comment>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                 </field>
-                <field id="reporters" translate="label comment" type="multiselect" sortOrder="60" showInDefault="1" showInWebsite="0" showInStore="0">
-                    <label>Enabled Reporters</label>
-                    <comment>Built-in data collected in each full report. Third-party reporters added by other modules aren't listed here and stay on regardless - see the README's "Pluggable reporters" section.</comment>
+                <field id="disabled_reporters" translate="label comment" type="multiselect" sortOrder="60" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Disabled Reporters</label>
+                    <comment>Data collected in each full report, built-in or contributed by another module - check any you want turned off. Leave empty (the default) to run everything, including any new reporter a future update adds, with no action needed here. See the README's "Pluggable reporters" section.</comment>
                     <source_model>StackNuts\StackGauge\Model\System\Config\Source\ReporterList</source_model>
                 </field>
                 <field id="additional_log_files" translate="label comment" sortOrder="65" showInDefault="1" showInWebsite="0" showInStore="0">

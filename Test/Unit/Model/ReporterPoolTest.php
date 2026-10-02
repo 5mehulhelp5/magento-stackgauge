@@ -206,7 +206,7 @@ class ReporterPoolTest extends TestCase
     public function testWrapsSectionsUnderTheReporterEnvelope(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['core']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $section = $this->factsSection(['edition' => (new Field())->varchar('Edition', 'Community')]);
 
@@ -232,7 +232,7 @@ class ReporterPoolTest extends TestCase
     public function testDisabledBuiltInReporterIsSkipped(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['modules']); // "core" not enabled
+        $config->method('getDisabledReporterCodes')->willReturn(['core']);
 
         $pool = new ReporterPool(
             [
@@ -249,10 +249,10 @@ class ReporterPoolTest extends TestCase
         $this->assertSame([], $pool->collect());
     }
 
-    public function testThirdPartyReporterNameAlwaysRunsRegardlessOfEnabledList(): void
+    public function testThirdPartyReporterRunsByDefaultWhenNotDisabled(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn([]); // nothing built-in enabled
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $section = $this->factsSection(['purge_queue_backlog' => (new Field())->number('Backlog', 0)]);
 
@@ -268,10 +268,30 @@ class ReporterPoolTest extends TestCase
         $this->assertEquals([$section], $result['cloudflare']['sections']);
     }
 
+    /**
+     * A third-party reporter's name is subject to the exact same "Disabled Reporters" check as
+     * a built-in one - there's no special-casing by origin, only by the name each reporter
+     * itself declares via getName(). See Model\System\Config\Source\ReporterList, which derives
+     * its admin options from every registered reporter for the same reason.
+     */
+    public function testThirdPartyReporterCanBeDisabledByNameJustLikeABuiltIn(): void
+    {
+        $config = $this->createStub(Config::class);
+        $config->method('getDisabledReporterCodes')->willReturn(['cloudflare']);
+
+        $pool = new ReporterPool(
+            [$this->fakeReporter('cloudflare', '1.0', ['general' => $this->factsSection([])])],
+            $config,
+            $this->createStub(LoggerInterface::class)
+        );
+
+        $this->assertSame([], $pool->collect());
+    }
+
     public function testAFailingReporterProducesAnErrorBlockWithoutBlockingOthers(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['core', 'cron']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('warning');
@@ -297,7 +317,7 @@ class ReporterPoolTest extends TestCase
     public function testAReporterReturningARawScalarInsteadOfASectionProducesAnErrorBlock(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['core']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('warning');
@@ -312,7 +332,7 @@ class ReporterPoolTest extends TestCase
     public function testAReporterWithNoCadenceDeclarationIsAlwaysTreatedAsHourly(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['core']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $pool = new ReporterPool(
             [
@@ -333,7 +353,7 @@ class ReporterPoolTest extends TestCase
     public function testADailyCadenceReporterIsExcludedFromAnHourlyCollection(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['modules']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $pool = new ReporterPool(
             [
@@ -354,12 +374,18 @@ class ReporterPoolTest extends TestCase
     public function testAReporterDeclaringAValidSectionIncludesItInTheEnvelope(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['sales']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $section = $this->factsSection(['orders' => (new Field())->number('Orders', 5)]);
 
         $pool = new ReporterPool(
-            [$this->fakeReporterWithSection('sales', DeclaresSectionInterface::SECTION_COMMERCE, ['general' => $section])],
+            [
+                $this->fakeReporterWithSection(
+                    'sales',
+                    DeclaresSectionInterface::SECTION_COMMERCE,
+                    ['general' => $section]
+                ),
+            ],
             $config,
             $this->createStub(LoggerInterface::class)
         );
@@ -370,7 +396,7 @@ class ReporterPoolTest extends TestCase
     public function testAReporterDeclaringAnInvalidSectionHasItOmittedWithAWarning(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn(['sales']);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('warning');
@@ -393,7 +419,7 @@ class ReporterPoolTest extends TestCase
     public function testGetReportersReturnsEveryRegisteredReporterRegardlessOfEnabledState(): void
     {
         $config = $this->createStub(Config::class);
-        $config->method('getEnabledReporterCodes')->willReturn([]);
+        $config->method('getDisabledReporterCodes')->willReturn([]);
 
         $reporters = [
             $this->fakeReporter('core', '1.0', []),

@@ -24,9 +24,10 @@ class Config
     private const XML_PATH_SITE_ID = 'stacknuts_stackgauge/general/site_id';
     private const XML_PATH_API_KEY = 'stacknuts_stackgauge/general/api_key';
     private const XML_PATH_HMAC_SECRET = 'stacknuts_stackgauge/general/hmac_secret';
-    private const XML_PATH_REPORTERS = 'stacknuts_stackgauge/general/reporters';
+    private const XML_PATH_DISABLED_REPORTERS = 'stacknuts_stackgauge/general/disabled_reporters';
     private const XML_PATH_ADDITIONAL_LOG_FILES = 'stacknuts_stackgauge/general/additional_log_files';
     private const XML_PATH_LOG_LEVEL = 'stacknuts_stackgauge/log/log_level';
+    private const XML_PATH_SELF_PROBE_ENABLED = 'stacknuts_stackgauge/general/self_probe_enabled';
 
     /**
      * @param ScopeConfigInterface $scopeConfig
@@ -102,17 +103,30 @@ class Config
     }
 
     /**
-     * Built-in reporter codes enabled via the admin "Enabled Reporters" multiselect.
+     * Reporter codes checked in the admin "Disabled Reporters" multiselect - every reporter
+     * actually registered with Model\ReporterPool, built-in or third-party alike, since that's
+     * what the admin dropdown's own options are now derived from (see
+     * Model\System\Config\Source\ReporterList). Nothing checked (the default) means every
+     * reporter runs: a brand-new reporter a future release ships, or a third-party module
+     * registers, has no way to appear in an admin's already-saved selection, so an opt-in list
+     * would leave it silently off until someone remembers to go re-check it. Opt-out means
+     * zero action is ever needed for a reporter to start running.
      *
-     * Third-party reporters registered through di.xml are not covered by this list -
-     * see Api\ReporterInterface for why that's a deliberate v1 boundary.
+     * Deliberately just the raw checked list - Model\ReporterPool does its own filtering
+     * directly against this, rather than this class computing "every reporter minus these"
+     * itself, which would need to know the full universe of registered reporters and create a
+     * circular dependency with ReporterPool (which already depends on this class).
      *
      * @param int|null $storeId
      * @return string[]
      */
-    public function getEnabledReporterCodes(?int $storeId = null): array
+    public function getDisabledReporterCodes(?int $storeId = null): array
     {
-        $value = (string)$this->scopeConfig->getValue(self::XML_PATH_REPORTERS, ScopeInterface::SCOPE_STORE, $storeId);
+        $value = (string)$this->scopeConfig->getValue(
+            self::XML_PATH_DISABLED_REPORTERS,
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
 
         return array_values(array_filter(array_map('trim', explode(',', $value))));
     }
@@ -167,5 +181,15 @@ class Config
     public function getLogLevel(?int $storeId = null): int
     {
         return (int)$this->scopeConfig->getValue(self::XML_PATH_LOG_LEVEL, ScopeInterface::SCOPE_STORE, $storeId);
+    }
+
+    /**
+     * Whether the storefront self-probe (see Model\StorefrontProbe) runs as part of the heartbeat.
+     *
+     * @param int|null $storeId
+     */
+    public function isSelfProbeEnabled(?int $storeId = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(self::XML_PATH_SELF_PROBE_ENABLED, ScopeInterface::SCOPE_STORE, $storeId);
     }
 }

@@ -21,6 +21,16 @@ class ConfigTest extends TestCase
         return new Config($scopeConfig, $this->createMock(EncryptorInterface::class), new Json());
     }
 
+    private function configWithDisabledReporters(?string $rawValue): Config
+    {
+        $scopeConfig = $this->createMock(ScopeConfigInterface::class);
+        $scopeConfig->method('getValue')
+            ->with('stacknuts_stackgauge/general/disabled_reporters')
+            ->willReturn($rawValue);
+
+        return new Config($scopeConfig, $this->createMock(EncryptorInterface::class), new Json());
+    }
+
     private function rows(array $rows): string
     {
         return json_encode($rows);
@@ -78,5 +88,23 @@ class ConfigTest extends TestCase
     public function testMalformedJsonReturnsNoFiles(): void
     {
         $this->assertSame([], $this->config('not json')->getMonitoredLogFiles());
+    }
+
+    /**
+     * The reporter toggle is opt-out, not opt-in: an unset/empty value means nothing is
+     * disabled - see Config::getDisabledReporterCodes()'s own docblock for why.
+     */
+    public function testNoDisabledReportersMeansAnEmptyList(): void
+    {
+        $this->assertSame([], $this->configWithDisabledReporters(null)->getDisabledReporterCodes());
+        $this->assertSame([], $this->configWithDisabledReporters('')->getDisabledReporterCodes());
+    }
+
+    public function testGetDisabledReporterCodesReturnsTheRawCheckedList(): void
+    {
+        $this->assertSame(
+            ['cron', 'security'],
+            $this->configWithDisabledReporters('cron, security')->getDisabledReporterCodes()
+        );
     }
 }

@@ -43,8 +43,9 @@ Go to **Stores > Configuration > Advanced > StackGauge**.
 | Site Identifier | Issued by the dashboard when the site is registered; sent in every report. |
 | API Key | Bearer token issued by the dashboard for this site. Stored encrypted. |
 | HMAC Secret | Shared secret used to sign every report. Stored encrypted. |
-| Enabled Reporters | Which built-in reporters run. Third-party reporters (see below) aren't listed here and always run. |
+| Disabled Reporters | Which reporters to turn *off* - built-in or contributed by another module, same list. Opt-out, not opt-in: leave empty (the default) and everything runs, including any reporter a future update or newly-installed companion module adds, with no action needed here. |
 | Monitored Log Files | Files (relative to `var/log`) the Logs reporter tails - pre-filled with the System/Exception logs, editable. |
+| Storefront Self-Probe | Whether every heartbeat also curls this store's own homepage - see "Storefront self-probe" below. On by default. |
 | Log Level | Minimum severity written to `var/log/stacknuts_stackgauge.log`. |
 
 These settings apply to the whole Magento instance (default scope only) - one installation
@@ -62,16 +63,17 @@ data. Full detail on exact fields lives in the dashboard's own documentation.
 |---|---|---|
 | `CoreReporter` | `core` | Edition, Magento version, PHP version, deployment mode, static content deploy state |
 | `ModuleReporter` | `modules` | Every registered module (enabled or not) and its resolved version |
-| `ComposerReporter` | `composer` | `composer.lock` hash and a small watch-list of key platform package versions |
+| `ComposerReporter` | `composer` | `composer.lock` hash, a small watch-list of key platform package versions, and any package downloaded from outside the common registries |
 | `DbSchemaReporter` | `db_schema` | Modules whose code `setup_version` has moved ahead of what's actually applied |
 | `PatchReporter` | `patches` | Applied official Adobe Commerce security patches, via `vendor/bin/patch-status` when present |
 | `IndexerReporter` | `indexers` | Per-indexer status/mode, plus pending changelog backlog for schedule-mode indexers |
 | `CronReporter` | `cron` | Whether cron looks alive, plus last success and next due time per job |
 | `CacheReporter` | `cache` | Per-cache-type status/tags, plus the active Full Page Cache backend |
-| `SecurityReporter` | `security` | Whether the admin path is still the default, maintenance-mode flag, sample-data modules present |
 | `RedisReporter` | `redis` | Reachability and version of each Redis-backed cache/session backend, checked separately |
 | `SearchReporter` | `search` | Configured search engine and whether it's actually reachable (Elasticsearch/OpenSearch only) |
 | `RabbitMqReporter` | `rabbitmq` | Per-queue message/consumer count, if RabbitMQ is configured |
+| `DbQueueReporter` | `db_queue` | Per-queue backlog and error count for every queue routed through the "db" message-queue connection |
+| `UptimeReporter` | `uptime` | Hourly storefront self-probe result (reachable / blocked / genuine error page) - see "Storefront self-probe" |
 | `DiskSpaceReporter` | `disk` | Free/total bytes for `var/log`, `var/cache`, and media, checked independently |
 | `DatabaseReporter` | `database` | MySQL/MariaDB version and reachability |
 | `SalesReporter` | `sales` | Lifetime order/quote counts, plus hourly order counts and revenue for the recent window |
@@ -88,8 +90,67 @@ data. Full detail on exact fields lives in the dashboard's own documentation.
 | `LogReporter` | `logs` | Recent log activity and exception summaries for the files configured under Monitored Log Files |
 | `ReportReporter` | `reports` | Recent `var/report` summaries |
 
-`SecurityReporter` never reports the actual admin path, only whether it's still the
-Magento default - the real path stays private to your store.
+Security-posture reporters (`SecurityReporter`, `AdminAccountsReporter`, `ConfigHygieneReporter`)
+live in the optional [`StackNuts_StackGaugeSecurity`](https://github.com/StackNuts/magento-stackgauge-security)
+companion module, not here - see "Security module" below for why.
+
+`LogReporter` reads each monitored file incrementally - only the bytes appended since its
+last run, tracked via a byte offset this module stores per file name (see "Database" below) -
+rather than rereading the whole file every time. One consequence: its "recent exceptions" and
+tail sections show what's new since the last run, not a constant rehash of the same
+historical lines every time, so they can be empty on a quiet run. exception.log's own
+occurrence count is the one exception (no pun intended) - it keeps reading as a stable,
+ever-growing total across runs, since that's what the dashboard's alerting expects.
+
+## Storefront self-probe
+
+Every heartbeat (every few minutes, see below), this server curls its own homepage and
+classifies the result:
+
+- **reachable** - got any HTTP response at all
+- **looks_like_error_page** - the body matches Magento's own genuine production-mode fatal
+  error page (`pub/errors/default/report.phtml`'s exact text), i.e. Magento itself is broken
+- **looks_blocked** - the body matches a common WAF/CDN challenge/interstitial page (e.g.
+  Cloudflare's "Just a moment..."), i.e. something in front of the site stopped this probe
+  before it ever reached Magento
+
+This distinction is the whole point: an external uptime monitor getting WAF-challenged looks
+identical to the site actually being down unless the two are told apart, and this probe runs
+from the server itself specifically so it can tell them apart. It never looks at response
+headers to decide `looks_blocked` - a site fronted by Cloudflare (or similar) gets a
+`cf-ray`-style header on every response, not just challenges, so header presence alone can't
+be the signal. Disable it under **Storefront Self-Probe** if you'd rather this server never
+make an outbound request to itself.
+
+The same probe also runs once an hour as `UptimeReporter`, alongside every other reporter -
+that's the copy with a trackable alert metric (`uptime.reachable`), since alerting attaches to
+reporters, not to the heartbeat. The two aren't redundant: the heartbeat copy is what gets you
+a signal within minutes instead of waiting up to an hour.
+
+`checkExposedPaths()` also exists on this same `StorefrontProbe` class, for checking a fixed
+list of sensitive paths (`.git/HEAD`, `composer.lock`, `app/etc/env.php`, etc.) for HTTP
+exposure once a day - but nothing in core StackGauge calls it. It's consumed by
+`StackNuts_StackGaugeSecurity`'s `SecurityReporter`, if that optional companion module is
+installed; see "Security module" below.
+
+## Security module
+
+Admin-account hygiene, config hygiene, filesystem exposure, webshell, and core-tamper checks
+live in the separate [`StackNuts_StackGaugeSecurity`](https://github.com/StackNuts/magento-stackgauge-security)
+module, not here. Not every install wants this - plenty of agencies already have dedicated
+security scanning (Sansec, host-level malware scanning, their own tooling), and running a
+second, overlapping set of filesystem walks on every client site would just double that cost
+for no benefit. Install it like any other reporter-contributing companion module (see
+"Pluggable reporters" below) if you want it; its reporters then show up automatically in the
+**Disabled Reporters** field above like any other.
+
+## Database
+
+This module creates one table of its own, `stacknuts_stackgauge_log_offset`, to support
+`LogReporter`'s incremental reads (see above) - one row per monitored log file name, storing
+how far it's read and (for exception.log only) a running occurrence count. Nothing else in
+StackGauge persists any state locally. `bin/magento module:uninstall --remove-data` drops this
+table; no catalog, sales, or customer data is ever touched.
 
 ## Transport / auth
 
@@ -153,8 +214,11 @@ Shape rules for a reporter's `getStatus()` return value:
   exception is logged and surfaces as an error for that cycle instead of your data.
 - Keep it small - no raw file contents, no PII, no binary blobs.
 
-The admin **Enabled Reporters** toggle only covers this module's own built-in reporters; a
-third-party reporter isn't individually toggleable from that screen.
+The admin **Disabled Reporters** toggle covers your reporter too, automatically - its options
+are derived from every reporter actually registered with `ReporterPool` (see
+`Model\System\Config\Source\ReporterList`), not a hardcoded list of built-in codes. Registering
+your reporter via `di.xml` the way this section describes is the only step needed; there's no
+separate registration for it to become individually toggleable.
 
 ## Uninstall
 
