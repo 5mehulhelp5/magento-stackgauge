@@ -33,6 +33,51 @@ class ModuleReporterTest extends TestCase
         $this->fail("No row found for module \"{$moduleName}\".");
     }
 
+    /**
+     * A File driver double that only knows about the given path => contents map, so these
+     * tests never touch the real filesystem.
+     *
+     * @param array<string, string> $files
+     */
+    private function fileDriverWithFiles(array $files): File
+    {
+        $filesystemDriver = $this->createMock(File::class);
+        $filesystemDriver->method('isReadable')->willReturnCallback(
+            static fn (string $path): bool => isset($files[$path])
+        );
+        $filesystemDriver->method('fileGetContents')->willReturnCallback(
+            static fn (string $path) => $files[$path] ?? false
+        );
+
+        return $filesystemDriver;
+    }
+
+    private function reporterWithModuleFiles(string $modulePath, array $files, ?string $setupVersion): ModuleReporter
+    {
+        $fullModuleList = $this->createStub(FullModuleList::class);
+        $fullModuleList->method('getAll')->willReturn(['Acme_Foo' => ['setup_version' => $setupVersion]]);
+
+        $enabledModuleList = $this->createStub(ModuleListInterface::class);
+        $enabledModuleList->method('has')->willReturn(true);
+
+        $componentRegistrar = $this->createStub(ComponentRegistrar::class);
+        $componentRegistrar->method('getPath')->willReturn($modulePath);
+
+        $composerLockReader = $this->createStub(ComposerLockReader::class);
+        $composerLockReader->method('getDecoded')->willReturn(null);
+
+        return new ModuleReporter(
+            $fullModuleList,
+            $enabledModuleList,
+            $componentRegistrar,
+            new Json(),
+            $composerLockReader,
+            $this->fileDriverWithFiles($files),
+            new Field(),
+            new Section()
+        );
+    }
+
     public function testFallsBackToModuleXmlSetupVersionWhenComposerLockHasNoMatch(): void
     {
         $fullModuleList = $this->createStub(FullModuleList::class);
@@ -99,5 +144,63 @@ class ModuleReporterTest extends TestCase
         $this->assertSame('', $fields['version']->getValue());
         $this->assertSame('unknown', $fields['version_source']->getValue());
         $this->assertFalse($fields['enabled']->getValue());
+    }
+
+    /**
+     * A module's own composer.json "version" field, when explicitly set, outranks
+     * module.xml's setup_version - it's a direct version declaration rather than a schema
+     * version a developer may or may not remember to bump.
+     */
+    public function testPrefersComposerJsonVersionOverSetupVersion(): void
+    {
+        $reporter = $this->reporterWithModuleFiles(
+            '/fake/Acme/Foo',
+            ['/fake/Acme/Foo/composer.json' => '{"name":"acme/foo","version":"3.2.1"}'],
+            setupVersion: '1.0.0'
+        );
+
+        $fields = $this->fieldsFor($reporter->getStatus()['modules']->getRows(), 'Acme_Foo');
+        $this->assertSame('3.2.1', $fields['version']->getValue());
+        $this->assertSame('composer_json', $fields['version_source']->getValue());
+    }
+
+    /**
+     * A module with no explicit composer.json version (the common case - most Magento modules
+     * rely on VCS tags instead) falls back to a dedicated version.json before setup_version.
+     */
+    public function testFallsBackToVersionJsonBeforeSetupVersion(): void
+    {
+        $reporter = $this->reporterWithModuleFiles(
+            '/fake/Acme/Foo',
+            [
+                '/fake/Acme/Foo/composer.json' => '{"name":"acme/foo"}',
+                '/fake/Acme/Foo/version.json' => '{"version":"2.0.0-beta1"}',
+            ],
+            setupVersion: '1.0.0'
+        );
+
+        $fields = $this->fieldsFor($reporter->getStatus()['modules']->getRows(), 'Acme_Foo');
+        $this->assertSame('2.0.0-beta1', $fields['version']->getValue());
+        $this->assertSame('version_json', $fields['version_source']->getValue());
+    }
+
+    /**
+     * With nothing else available - no composer.lock match, no composer.json/version.json
+     * version, no setup_version - an "@version" tag in registration.php's own docblock is the
+     * last resort before giving up and reporting "unknown".
+     */
+    public function testFallsBackToRegistrationPhpDocblockAsLastResort(): void
+    {
+        $reporter = $this->reporterWithModuleFiles(
+            '/fake/Acme/Foo',
+            [
+                '/fake/Acme/Foo/registration.php' => "<?php\n/**\n * @version 0.9.1\n */\n",
+            ],
+            setupVersion: null
+        );
+
+        $fields = $this->fieldsFor($reporter->getStatus()['modules']->getRows(), 'Acme_Foo');
+        $this->assertSame('0.9.1', $fields['version']->getValue());
+        $this->assertSame('registration_php', $fields['version_source']->getValue());
     }
 }

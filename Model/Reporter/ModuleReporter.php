@@ -28,16 +28,24 @@ use Throwable;
  *
  * Most Magento/Mage-OS core modules no longer declare module.xml's setup_version
  * (versioning moved to Composer), so a naive read of FullModuleList's setup_version comes
- * back null for nearly every core module. Resolution instead cross-references each module's
- * composer.json "name" against composer.lock, falling back to setup_version only for modules
- * that still declare one.
+ * back null for nearly every core module - and a module developed as its own git checkout
+ * dropped straight into app/code (not required via Composer at all, so absent from
+ * composer.lock even though it ships its own composer.json) is exactly the case none of that
+ * helps either. Resolution instead tries, in order: composer.lock (by package name, read from
+ * the module's own composer.json - the most authoritative source when Composer actually
+ * manages the module); that same composer.json's own "version" field, if explicitly set
+ * (uncommon - most Magento modules rely on VCS tags instead - but authoritative when present);
+ * a dedicated version.json file some modules ship specifically to solve this problem;
+ * module.xml's setup_version; and finally an "@version" tag in registration.php's docblock, a
+ * last-resort convention some modules use. A module matching none of these reports version
+ * "unknown" rather than guessing.
  */
 class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, DeclaresSectionInterface
 {
     use DailyCadenceTrait;
     use CommerceSectionTrait;
 
-    private const SCHEMA_VERSION = '1.0';
+    private const SCHEMA_VERSION = '1.1';
 
     /**
      * @param FullModuleList $fullModuleList
@@ -102,8 +110,17 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
         $modules = [];
 
         foreach ($this->fullModuleList->getAll() as $name => $info) {
-            $packageName = $this->readComposerPackageName($name);
-            [$version, $source] = $this->resolveVersion($packageName, $info['setup_version'] ?? null, $lockedVersions);
+            $modulePath = $this->componentRegistrar->getPath(ComponentRegistrar::MODULE, $name);
+            $composerJson = $modulePath !== null ? $this->readModuleComposerJson($modulePath) : null;
+            $packageName = $composerJson['name'] ?? null;
+
+            [$version, $source] = $this->resolveVersion(
+                $packageName,
+                is_string($composerJson['version'] ?? null) ? $composerJson['version'] : null,
+                $lockedVersions,
+                $modulePath,
+                $info['setup_version'] ?? null
+            );
 
             $modules[] = $this->field->array($name, [
                 'name' => $this->field->varchar('Name', $name),
@@ -124,38 +141,55 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
     }
 
     /**
-     * Resolves a module's version, preferring composer.lock over module.xml's setup_version.
+     * Resolves a module's version - see this class's own docblock for the full fallback order.
      *
      * @param string|null $packageName
-     * @param string|null $setupVersion
+     * @param string|null $composerJsonVersion
      * @param array<string,string> $lockedVersions
+     * @param string|null $modulePath
+     * @param string|null $setupVersion
      * @return array{0: ?string, 1: string} [version, source]
      */
-    private function resolveVersion(?string $packageName, ?string $setupVersion, array $lockedVersions): array
-    {
+    private function resolveVersion(
+        ?string $packageName,
+        ?string $composerJsonVersion,
+        array $lockedVersions,
+        ?string $modulePath,
+        ?string $setupVersion
+    ): array {
         if ($packageName !== null && isset($lockedVersions[$packageName])) {
             return [$lockedVersions[$packageName], 'composer_lock'];
+        }
+
+        if ($composerJsonVersion) {
+            return [$composerJsonVersion, 'composer_json'];
+        }
+
+        $versionJsonVersion = $modulePath !== null ? $this->readVersionJson($modulePath) : null;
+        if ($versionJsonVersion !== null) {
+            return [$versionJsonVersion, 'version_json'];
         }
 
         if ($setupVersion) {
             return [$setupVersion, 'module_xml'];
         }
 
+        $registrationVersion = $modulePath !== null ? $this->readRegistrationDocblockVersion($modulePath) : null;
+        if ($registrationVersion !== null) {
+            return [$registrationVersion, 'registration_php'];
+        }
+
         return [null, 'unknown'];
     }
 
     /**
-     * Reads a module's Composer package name from its own composer.json, via ComponentRegistrar's module path.
+     * Reads and decodes a module's own composer.json, or null if it has none or it doesn't parse.
      *
-     * @param string $moduleName
+     * @param string $modulePath
+     * @return array<string,mixed>|null
      */
-    private function readComposerPackageName(string $moduleName): ?string
+    private function readModuleComposerJson(string $modulePath): ?array
     {
-        $modulePath = $this->componentRegistrar->getPath(ComponentRegistrar::MODULE, $moduleName);
-        if ($modulePath === null) {
-            return null;
-        }
-
         $composerJsonPath = rtrim($modulePath, '/') . '/composer.json';
         if (!$this->filesystemDriver->isReadable($composerJsonPath)) {
             return null;
@@ -163,10 +197,59 @@ class ModuleReporter implements ReporterInterface, DeclaresCadenceInterface, Dec
 
         try {
             $data = $this->json->unserialize((string)$this->filesystemDriver->fileGetContents($composerJsonPath));
-            return $data['name'] ?? null;
+            return is_array($data) ? $data : null;
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Reads a dedicated version.json ({"version": "x.y.z"}) some modules ship specifically for
+     * this - a convention, not a Magento or Composer standard, so this is tried only after
+     * composer-based sources and only before the weaker setup_version/docblock fallbacks.
+     *
+     * @param string $modulePath
+     */
+    private function readVersionJson(string $modulePath): ?string
+    {
+        $path = rtrim($modulePath, '/') . '/version.json';
+        if (!$this->filesystemDriver->isReadable($path)) {
+            return null;
+        }
+
+        try {
+            $data = $this->json->unserialize((string)$this->filesystemDriver->fileGetContents($path));
+        } catch (Throwable) {
+            return null;
+        }
+
+        $version = is_array($data) ? ($data['version'] ?? null) : null;
+
+        return is_string($version) && $version !== '' ? $version : null;
+    }
+
+    /**
+     * Last-resort fallback: an "@version x.y.z" tag in registration.php's own leading docblock.
+     * registration.php files are always tiny (a namespace plus one ComponentRegistrar::register()
+     * call, maybe a leading comment) - reading the whole file is simpler than bounding a partial
+     * read and costs nothing extra.
+     *
+     * @param string $modulePath
+     */
+    private function readRegistrationDocblockVersion(string $modulePath): ?string
+    {
+        $path = rtrim($modulePath, '/') . '/registration.php';
+        if (!$this->filesystemDriver->isReadable($path)) {
+            return null;
+        }
+
+        try {
+            $contents = (string)$this->filesystemDriver->fileGetContents($path);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return preg_match('/@version\s+([^\s*]+)/', $contents, $matches) === 1 ? $matches[1] : null;
     }
 
     /**
