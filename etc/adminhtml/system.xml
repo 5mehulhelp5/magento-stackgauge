@@ -45,6 +45,11 @@
                     <frontend_model>StackNuts\StackGauge\Block\Adminhtml\System\Config\Form\Field\LogFiles</frontend_model>
                     <backend_model>Magento\Config\Model\Config\Backend\Serialized\ArraySerialized</backend_model>
                 </field>
+                <field id="self_probe_enabled" translate="label comment" type="select" sortOrder="66" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Storefront Self-Probe</label>
+                    <comment>Every heartbeat (every few minutes), this server curls its own homepage and reports whether it responded normally, served a genuine Magento error page, or looks like it never reached Magento at all (a WAF/CDN challenge, most commonly) - distinguishing "the site is actually down" from "something in front of it blocked the check," which a plain uptime ping can't do. Off disables this one check only; everything else keeps working.</comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
                 <field id="test_ping" translate="label" sortOrder="70" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Send Now</label>
                     <frontend_model>StackNuts\StackGauge\Block\Adminhtml\System\Config\TestPing</frontend_model>

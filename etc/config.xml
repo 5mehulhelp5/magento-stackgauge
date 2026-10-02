@@ -31,11 +31,12 @@
         <stacknuts_stackgauge>
             <general>
                 <enabled>0</enabled>
+                <self_probe_enabled>1</self_probe_enabled>
                 <!-- Must mirror Model\System\Config\Source\ReporterList::CODES - this is what
                 a brand-new install's "Enabled Reporters" multiselect starts pre-checked
                 with, since a multiselect field with no default here means fully empty (no
                 reporters at all) rather than "all", regardless of what CODES declares. -->
-                <reporters>core,modules,composer,db_schema,patches,inventory,customers,abandoned_carts,indexers,cron,cache,security,redis,search,rabbitmq,disk,database,sales,catalog,coupons,logs,reports,store_views,themes,payments,php_extensions,product_health</reporters>
+                <reporters>core,modules,composer,db_schema,patches,inventory,customers,abandoned_carts,indexers,cron,cache,security,redis,search,rabbitmq,db_queue,uptime,disk,database,sales,catalog,coupons,logs,reports,store_views,themes,payments,php_extensions,product_health</reporters>
                 <additional_log_files><![CDATA[{"_1000000000000_001":{"name":"System Log","file":"system.log"},"_1000000000000_002":{"name":"Exception Log","file":"exception.log"}}]]></additional_log_files>
             </general>
             <log>
