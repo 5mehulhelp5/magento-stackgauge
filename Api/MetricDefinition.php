@@ -64,6 +64,9 @@ class MetricDefinition implements JsonSerializable
      * @param string $defaultOperator One of self::OPERATOR_*.
      * @param int|float $defaultThreshold
      * @param int $defaultWindowMinutes
+     * @param string|null $cadence One of DeclaresCadenceInterface::CADENCE_*; stamped by MetricCatalogPool from the
+     *     owning reporter, so reporter authors never set it. The dashboard uses it so the evaluation window
+     *     never drops below the interval the metric is actually reported at.
      */
     public function __construct(
         private readonly string $metricKey,
@@ -71,7 +74,8 @@ class MetricDefinition implements JsonSerializable
         private readonly string $aggregation,
         private readonly string $defaultOperator,
         private readonly int|float $defaultThreshold,
-        private readonly int $defaultWindowMinutes
+        private readonly int $defaultWindowMinutes,
+        private readonly ?string $cadence = null
     ) {
         if ($metricKey === '') {
             throw new InvalidArgumentException('Metric key must not be empty.');
@@ -143,6 +147,30 @@ class MetricDefinition implements JsonSerializable
     }
 
     /**
+     * The owning reporter's cadence, or null if not yet stamped by MetricCatalogPool.
+     */
+    public function getCadence(): ?string
+    {
+        return $this->cadence;
+    }
+
+    /**
+     * Copy of this definition tagged with the owning reporter's cadence.
+     */
+    public function withCadence(string $cadence): self
+    {
+        return new self(
+            $this->metricKey,
+            $this->label,
+            $this->aggregation,
+            $this->defaultOperator,
+            $this->defaultThreshold,
+            $this->defaultWindowMinutes,
+            $cadence
+        );
+    }
+
+    /**
      * Wire representation of this metric definition.
      *
      * @return array<string, mixed>
@@ -156,6 +184,7 @@ class MetricDefinition implements JsonSerializable
             'default_operator' => $this->defaultOperator,
             'default_threshold' => $this->defaultThreshold,
             'default_window_minutes' => $this->defaultWindowMinutes,
+            'cadence' => $this->cadence,
         ];
     }
 }

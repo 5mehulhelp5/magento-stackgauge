@@ -33,9 +33,18 @@ class MetricDefinitionTest extends TestCase
                 'default_operator' => 'lt',
                 'default_threshold' => 10,
                 'default_window_minutes' => 15,
+                'cadence' => null,
             ],
             $metric->jsonSerialize()
         );
+    }
+
+    public function testWithCadenceStampsCadenceOntoTheWireRepresentation(): void
+    {
+        $metric = (new MetricDefinition('a.b', 'A B', 'latest', 'gt', 1, 15))->withCadence('hourly');
+
+        $this->assertSame('hourly', $metric->getCadence());
+        $this->assertSame('hourly', $metric->jsonSerialize()['cadence']);
     }
 
     public function testRejectsAnEmptyMetricKey(): void

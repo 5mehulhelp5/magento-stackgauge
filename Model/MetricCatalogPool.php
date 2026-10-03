@@ -10,6 +10,7 @@ namespace StackNuts\StackGauge\Model;
 
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
+use StackNuts\StackGauge\Api\DeclaresCadenceInterface;
 use StackNuts\StackGauge\Api\MetricCatalogInterface;
 use StackNuts\StackGauge\Api\MetricDefinition;
 use Throwable;
@@ -55,7 +56,11 @@ class MetricCatalogPool
                         ));
                     }
 
-                    $result[$metric->getMetricKey()] = $metric;
+                    $cadence = $reporter instanceof DeclaresCadenceInterface
+                        ? $reporter->getCadence()
+                        : DeclaresCadenceInterface::CADENCE_HOURLY;
+
+                    $result[$metric->getMetricKey()] = $metric->withCadence($cadence);
                 }
             } catch (Throwable $e) {
                 $this->logger->warning(sprintf(
