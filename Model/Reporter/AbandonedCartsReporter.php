@@ -139,7 +139,10 @@ class AbandonedCartsReporter implements ReporterInterface, DeclaresCadenceInterf
                 MetricDefinition::AGGREGATION_DELTA,
                 MetricDefinition::OPERATOR_GT,
                 50,
-                10080
+                10080,
+                null,
+                description: 'Abandoned carts grew by {value} in the last {window}, above {threshold}.',
+                impact: 'Possible checkout friction or payment problems.'
             ),
         ];
     }

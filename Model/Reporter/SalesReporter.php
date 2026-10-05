@@ -126,7 +126,10 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
                 MetricDefinition::AGGREGATION_DELTA,
                 MetricDefinition::OPERATOR_LT,
                 5,
-                360
+                360,
+                null,
+                description: 'Fewer than {threshold} new orders in the last {window} (currently {value}).',
+                impact: 'Checkout may be broken, or the store is not getting traffic.'
             ),
             new MetricDefinition(
                 self::METRIC_QUOTES_WITH_ITEMS_LIFETIME,
@@ -134,7 +137,10 @@ class SalesReporter implements ReporterInterface, MetricCatalogInterface, Declar
                 MetricDefinition::AGGREGATION_DELTA,
                 MetricDefinition::OPERATOR_LT,
                 3,
-                360
+                360,
+                null,
+                description: 'Fewer than {threshold} new baskets with items in the last {window} (currently {value}).',
+                impact: 'Customers may not be able to add products to the basket.'
             ),
         ];
     }

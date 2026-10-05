@@ -132,7 +132,10 @@ class CouponsReporter implements ReporterInterface, DeclaresCadenceInterface, Me
                 MetricDefinition::AGGREGATION_DELTA,
                 MetricDefinition::OPERATOR_GT,
                 100,
-                10080
+                10080,
+                null,
+                description: 'Coupons were redeemed {value} times in the last {window}, above {threshold}.',
+                impact: 'Possible coupon abuse or a leaked code.'
             ),
         ];
     }

@@ -115,7 +115,10 @@ class InventoryReporter implements ReporterInterface, DeclaresCadenceInterface, 
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 50,
-                1500
+                1500,
+                null,
+                description: '{value} products are out of stock, above the limit of {threshold}.',
+                impact: 'Customers see unbuyable products, which loses sales.'
             ),
         ];
     }

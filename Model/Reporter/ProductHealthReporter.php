@@ -109,7 +109,10 @@ class ProductHealthReporter implements ReporterInterface, DeclaresCadenceInterfa
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 20,
-                1500
+                1500,
+                null,
+                description: '{value} products have no image, above the limit of {threshold}.',
+                impact: 'Customers see broken or unappealing product pages.'
             ),
             new MetricDefinition(
                 self::METRIC_NO_PRICE,
@@ -117,7 +120,10 @@ class ProductHealthReporter implements ReporterInterface, DeclaresCadenceInterfa
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 5,
-                1500
+                1500,
+                null,
+                description: '{value} products have no price, above the limit of {threshold}.',
+                impact: 'Customers cannot buy products without a price.'
             ),
         ];
     }

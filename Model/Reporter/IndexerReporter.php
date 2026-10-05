@@ -174,7 +174,10 @@ class IndexerReporter implements ReporterInterface, MetricCatalogInterface, Decl
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 100,
-                15
+                15,
+                null,
+                description: 'An indexer has {value} changes waiting, above the limit of {threshold}.',
+                impact: 'The storefront may show stale prices, stock and catalogue data.'
             ),
         ];
     }

@@ -67,6 +67,9 @@ class MetricDefinition implements JsonSerializable
      * @param string|null $cadence One of DeclaresCadenceInterface::CADENCE_*; stamped by MetricCatalogPool from the
      *     owning reporter, so reporter authors never set it. The dashboard uses it so the evaluation window
      *     never drops below the interval the metric is actually reported at.
+     * @param string|null $description Plain-language "what happened" sentence for alert notifications. May use
+     *     the placeholders {value}, {threshold} and {window}, filled in by the dashboard from the live rule.
+     * @param string|null $impact Plain-language "why this matters" sentence; same placeholders as $description.
      */
     public function __construct(
         private readonly string $metricKey,
@@ -75,7 +78,9 @@ class MetricDefinition implements JsonSerializable
         private readonly string $defaultOperator,
         private readonly int|float $defaultThreshold,
         private readonly int $defaultWindowMinutes,
-        private readonly ?string $cadence = null
+        private readonly ?string $cadence = null,
+        private readonly ?string $description = null,
+        private readonly ?string $impact = null
     ) {
         if ($metricKey === '') {
             throw new InvalidArgumentException('Metric key must not be empty.');
@@ -155,6 +160,22 @@ class MetricDefinition implements JsonSerializable
     }
 
     /**
+     * The description passed to the constructor, with its placeholders unexpanded.
+     */
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    /**
+     * The impact passed to the constructor, with its placeholders unexpanded.
+     */
+    public function getImpact(): ?string
+    {
+        return $this->impact;
+    }
+
+    /**
      * Copy of this definition tagged with the owning reporter's cadence.
      */
     public function withCadence(string $cadence): self
@@ -166,7 +187,9 @@ class MetricDefinition implements JsonSerializable
             $this->defaultOperator,
             $this->defaultThreshold,
             $this->defaultWindowMinutes,
-            $cadence
+            $cadence,
+            $this->description,
+            $this->impact
         );
     }
 
@@ -185,6 +208,8 @@ class MetricDefinition implements JsonSerializable
             'default_threshold' => $this->defaultThreshold,
             'default_window_minutes' => $this->defaultWindowMinutes,
             'cadence' => $this->cadence,
+            'description' => $this->description,
+            'impact' => $this->impact,
         ];
     }
 }

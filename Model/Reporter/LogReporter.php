@@ -185,7 +185,10 @@ class LogReporter implements ReporterInterface, MetricCatalogInterface, Declares
                 MetricDefinition::AGGREGATION_DELTA,
                 MetricDefinition::OPERATOR_GT,
                 20,
-                360
+                360,
+                null,
+                description: '{value} exceptions were logged in the last {window}, above {threshold}.',
+                impact: 'Something in the code is failing repeatedly.'
             ),
         ];
     }

@@ -151,7 +151,10 @@ class DbQueueReporter implements ReporterInterface, DeclaresSectionInterface, Me
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 50,
-                15
+                15,
+                null,
+                description: 'The database queue has {value} messages waiting, above the limit of {threshold}.',
+                impact: 'Background jobs such as emails and imports are not completing.'
             ),
             // Threshold 0 - unlike backlog (expected to ebb and flow with normal traffic), any
             // error at all means a message a consumer genuinely couldn't process, worth
@@ -162,7 +165,10 @@ class DbQueueReporter implements ReporterInterface, DeclaresSectionInterface, Me
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 0,
-                15
+                15,
+                null,
+                description: 'The database queue has {value} errored messages, above the limit of {threshold}.',
+                impact: 'Background jobs are failing and will not be retried.'
             ),
         ];
     }

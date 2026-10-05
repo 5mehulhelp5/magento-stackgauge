@@ -144,7 +144,10 @@ class SearchReporter implements ReporterInterface, MetricCatalogInterface, Decla
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_LT,
                 1,
-                120
+                120,
+                null,
+                description: 'The search index holds {value} products, below the minimum of {threshold}.',
+                impact: 'Customers may see missing products in search and category pages.'
             ),
         ];
     }

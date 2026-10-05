@@ -153,7 +153,7 @@ class MetricCatalogPoolTest extends TestCase
 
         $pool = new MetricCatalogPool($reporterPool, $this->createStub(LoggerInterface::class));
 
-        $this->assertSame(['disk.media.free_percent' => $metric], $pool->collect());
+        $this->assertEquals(['disk.media.free_percent' => $metric->withCadence('hourly')], $pool->collect());
     }
 
     public function testAFailingReporterIsSkippedWithoutBlockingOthers(): void
@@ -178,7 +178,7 @@ class MetricCatalogPoolTest extends TestCase
 
         $pool = new MetricCatalogPool($reporterPool, $logger);
 
-        $this->assertSame(['ok.metric' => $metric], $pool->collect());
+        $this->assertEquals(['ok.metric' => $metric->withCadence('hourly')], $pool->collect());
     }
 
     public function testReturnsAnEmptyArrayWhenNoReporterDeclaresMetrics(): void

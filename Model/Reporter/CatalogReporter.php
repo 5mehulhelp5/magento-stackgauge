@@ -111,7 +111,10 @@ class CatalogReporter implements ReporterInterface, MetricCatalogInterface, Decl
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_LT,
                 1,
-                1500
+                1500,
+                null,
+                description: 'Only {value} products are enabled, below the minimum of {threshold}.',
+                impact: 'The catalogue may have been disabled or wiped by accident.'
             ),
         ];
     }

@@ -141,7 +141,10 @@ class DbSchemaReporter implements ReporterInterface, DeclaresCadenceInterface, M
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_GT,
                 0,
-                1500
+                1500,
+                null,
+                description: '{value} modules have a database schema that differs from their definition.',
+                impact: 'Upgrades may fail or data may be lost.'
             ),
         ];
     }

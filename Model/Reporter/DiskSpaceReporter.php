@@ -130,7 +130,10 @@ class DiskSpaceReporter implements ReporterInterface, MetricCatalogInterface, De
                 MetricDefinition::AGGREGATION_LATEST,
                 MetricDefinition::OPERATOR_LT,
                 10,
-                15
+                15,
+                null,
+                description: 'Only {value}% of media disk space is free, below {threshold}%.',
+                impact: 'Uploads will fail once the disk is full.'
             ),
         ];
     }

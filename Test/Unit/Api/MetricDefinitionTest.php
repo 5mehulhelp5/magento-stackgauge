@@ -34,9 +34,29 @@ class MetricDefinitionTest extends TestCase
                 'default_threshold' => 10,
                 'default_window_minutes' => 15,
                 'cadence' => null,
+                'description' => null,
+                'impact' => null,
             ],
             $metric->jsonSerialize()
         );
+    }
+
+    public function testDescriptionAndImpactSurviveWithCadenceAndSerialize(): void
+    {
+        $metric = (new MetricDefinition(
+            'a.b',
+            'A B',
+            'latest',
+            'gt',
+            1,
+            15,
+            null,
+            'Value {value} is over {threshold}.',
+            'Customers are affected.'
+        ))->withCadence('daily');
+
+        $this->assertSame('Value {value} is over {threshold}.', $metric->getDescription());
+        $this->assertSame('Customers are affected.', $metric->jsonSerialize()['impact']);
     }
 
     public function testWithCadenceStampsCadenceOntoTheWireRepresentation(): void

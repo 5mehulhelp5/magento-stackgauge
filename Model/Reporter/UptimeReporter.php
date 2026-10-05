@@ -118,7 +118,10 @@ class UptimeReporter implements ReporterInterface, DeclaresSectionInterface, Met
                 MetricDefinition::AGGREGATION_MIN,
                 MetricDefinition::OPERATOR_LT,
                 1,
-                120
+                120,
+                null,
+                description: 'The storefront was unreachable at the last check.',
+                impact: 'Customers cannot reach the store.'
             ),
         ];
     }
