@@ -135,9 +135,15 @@ installed; see "Security module" below.
 
 ## Security module
 
-Admin-account hygiene, config hygiene, filesystem exposure, webshell, and core-tamper checks
-live in the separate [`StackNuts_StackGaugeSecurity`](https://github.com/StackNuts/magento-stackgauge-security)
-module, not here. Not every install wants this - plenty of agencies already have dedicated
+Admin-account hygiene, config hygiene, filesystem exposure, and core-tamper checks live in the
+separate [`StackNuts_StackGaugeSecurity`](https://github.com/StackNuts/magento-stackgauge-security)
+module, not here. So does content-signature scanning: it checks CMS blocks and pages, admin-editable
+HTML/JS config, `pub/` PHP and `generated/code/` for known webshell and Magecart patterns. Its
+signature set is downloaded once a day from the public signatures repository on GitHub, verified
+against a published SHA-256, and cached; a failed download keeps the previous set, or the copy
+bundled with the module. That daily refresh runs in the companion's own cron group, so it never
+delays this module's reports. Feed updates can be turned off under **Signature Feed Updates** in the
+same StackGauge config section. Not every install wants this - plenty of agencies already have dedicated
 security scanning (Sansec, host-level malware scanning, their own tooling), and running a
 second, overlapping set of filesystem walks on every client site would just double that cost
 for no benefit. Install it like any other reporter-contributing companion module (see
