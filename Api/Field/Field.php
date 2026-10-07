@@ -132,4 +132,48 @@ class Field
     {
         return new ArrayField($label, $value);
     }
+
+    /**
+     * Builds one ArrayField row per element of $rows, keyed by $keyFn($row).
+     *
+     * Each row gets a varchar column per entry in $columnLabels (row key => column label, in
+     * column order). Convenience for the common case of a table whose every column is an
+     * uncolored varchar pulled straight off the row - see e.g.
+     * SecurityReporter::pubExecutableFileFields(). A row that needs a non-varchar column or
+     * per-value coloring should keep building its ArrayField directly instead of reaching for
+     * this.
+     *
+     * @param list<array<string,string>> $rows
+     * @param callable $keyFn function(array $row): string
+     * @param array<string,string> $columnLabels
+     * @return list<ArrayField>
+     */
+    public function varcharRows(array $rows, callable $keyFn, array $columnLabels): array
+    {
+        return array_map(
+            function (array $row) use ($keyFn, $columnLabels): ArrayField {
+                $columns = [];
+                foreach ($columnLabels as $rowKey => $label) {
+                    $columns[$rowKey] = $this->varchar($label, $row[$rowKey]);
+                }
+
+                return $this->array($keyFn($row), $columns);
+            },
+            $rows
+        );
+    }
+
+    /**
+     * The most common severity shape across reporters: warning if $condition, else ok.
+     *
+     * A reporter whose condition should be SEVERITY_CRITICAL, or whose "bad" state isn't a
+     * plain boolean, builds its severity directly instead.
+     *
+     * @param bool $condition
+     * @param string $whenTrue One of Field::SEVERITY_*.
+     */
+    public function severityIf(bool $condition, string $whenTrue = self::SEVERITY_WARNING): string
+    {
+        return $condition ? $whenTrue : self::SEVERITY_OK;
+    }
 }

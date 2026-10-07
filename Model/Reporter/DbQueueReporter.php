@@ -111,14 +111,14 @@ class DbQueueReporter implements ReporterInterface, DeclaresSectionInterface, Me
                     $totalBacklog,
                     self::METRIC_TOTAL_BACKLOG,
                     MetricDefinition::AGGREGATION_LATEST,
-                    severity: $totalBacklog > 0 ? Field::SEVERITY_WARNING : Field::SEVERITY_OK
+                    severity: $this->field->severityIf($totalBacklog > 0)
                 ),
                 'total_errors' => $this->field->trackableNumber(
                     'Total Errors',
                     $totalErrors,
                     self::METRIC_TOTAL_ERRORS,
                     MetricDefinition::AGGREGATION_LATEST,
-                    severity: $totalErrors > 0 ? Field::SEVERITY_WARNING : Field::SEVERITY_OK
+                    severity: $this->field->severityIf($totalErrors > 0)
                 ),
             ]),
             'queues' => $this->section->table(
@@ -241,12 +241,12 @@ class DbQueueReporter implements ReporterInterface, DeclaresSectionInterface, Me
             'backlog' => $this->field->number(
                 'Backlog',
                 $backlog,
-                severity: $backlog > 0 ? Field::SEVERITY_WARNING : Field::SEVERITY_OK
+                severity: $this->field->severityIf($backlog > 0)
             ),
             'errors' => $this->field->number(
                 'Errors',
                 $errors,
-                severity: $errors > 0 ? Field::SEVERITY_WARNING : Field::SEVERITY_OK
+                severity: $this->field->severityIf($errors > 0)
             ),
         ]);
     }
