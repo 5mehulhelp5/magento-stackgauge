@@ -19,7 +19,7 @@ use StackNuts\StackGauge\Api\MetricCatalogInterface;
 use StackNuts\StackGauge\Api\MetricDefinition;
 use StackNuts\StackGauge\Api\ReporterInterface;
 use StackNuts\StackGauge\Api\Section\Section;
-use StackNuts\StackGauge\Model\Reporter\Concern\PlatformSectionTrait;
+use StackNuts\StackGauge\Model\Reporter\Concern\DataSectionTrait;
 use Throwable;
 
 /**
@@ -32,7 +32,7 @@ use Throwable;
  */
 class SearchReporter implements ReporterInterface, MetricCatalogInterface, DeclaresSectionInterface
 {
-    use PlatformSectionTrait;
+    use DataSectionTrait;
 
     private const SCHEMA_VERSION = '1.0';
     private const METRIC_INDEX_DOCUMENT_COUNT = 'search.index_document_count';

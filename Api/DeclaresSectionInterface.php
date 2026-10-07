@@ -39,11 +39,17 @@ interface DeclaresSectionInterface
     public const SECTION_COMMERCE = 'commerce';
 
     /**
-     * Everything else about the platform itself: edition/version, installed code, security
-     * posture, site structure - and the catch-all for anything that doesn't fit the other
-     * three.
+     * Everything else about the platform itself: edition/version, installed code, site
+     * structure - and the catch-all for anything that doesn't fit the other categories.
      */
     public const SECTION_PLATFORM = 'platform';
+
+    /**
+     * Admin/account hygiene, config hygiene, filesystem exposure, and content-signature
+     * (webshell/Magecart) findings - security posture specifically, not general platform
+     * state. Used by StackNuts_StackGaugeSecurity's reporters.
+     */
+    public const SECTION_SECURITY = 'security';
 
     /**
      * @var list<string>
@@ -53,6 +59,7 @@ interface DeclaresSectionInterface
         self::SECTION_DATA,
         self::SECTION_COMMERCE,
         self::SECTION_PLATFORM,
+        self::SECTION_SECURITY,
     ];
 
     /**
